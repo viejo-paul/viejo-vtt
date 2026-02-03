@@ -33,3 +33,19 @@ body {
 .dark .shadow-2xl {
   --tw-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
 }
+
+/* index.css */
+@media (max-width: 640px) {
+  .vtt-window { /* Si añades esta clase a tus ventanas */
+    width: 90vw !important;
+    max-width: 320px;
+  }
+}
+
+/* Evita que el móvil intente hacer scroll mientras mueves dados o ventanas */
+body {
+  touch-action: none;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}

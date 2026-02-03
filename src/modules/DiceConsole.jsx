@@ -46,6 +46,40 @@ function DiceConsole({ onClose, onRoll }) {
     setIsDragging(true);
     dragOffset.current = { x: e.clientX - position.x, y: e.clientY - position.y };
   };
+  // DiceConsole.jsx
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    dragOffset.current = { 
+      x: touch.clientX - position.x, 
+      y: touch.clientY - position.y 
+    };
+  };
+
+  // Y en el useEffect, añade los listeners de touch:
+  useEffect(() => {
+    const handleMove = (e) => {
+      if (!isDragging) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      setPosition(keepInBounds(clientX - dragOffset.current.x, clientY - dragOffset.current.y));
+    };
+
+    const handleEnd = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDragging]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -71,7 +105,7 @@ function DiceConsole({ onClose, onRoll }) {
       className="absolute z-40 w-72 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/20 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
     >
       {/* TÍTULO */}
-      <div onMouseDown={handleMouseDown} className="p-3 cursor-grab active:cursor-grabbing flex justify-between items-center bg-neutral-100 dark:bg-white/5 border-b border-neutral-200 dark:border-white/10">
+      <div onMouseDown={handleMouseDown} onTouchStart={handleTouchStart} className="p-3 cursor-grab active:cursor-grabbing flex justify-between items-center bg-neutral-100 dark:bg-white/5 border-b border-neutral-200 dark:border-white/10">
         <div className="flex items-center gap-2 text-xs uppercase text-neutral-500 dark:text-neutral-400 font-bold">
           <Dices size={16} className="text-emerald-600 dark:text-emerald-500"/> <span>Tirador</span>
         </div>
