@@ -5,8 +5,9 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
     <>
       <footer 
         className={`
-          absolute bottom-0 left-0 w-full z-50 transition-transform duration-500 ease-in-out
+          fixed bottom-0 left-0 w-full z-[100] transition-transform duration-500
           ${isOpen ? 'translate-y-0' : 'translate-y-full'}
+          pb-[env(safe-area-inset-bottom)] /* Esto es vital para iPhone/Android modernos */
         `}
       >
         {/* CAMBIO: bg-white/80 para modo claro y dark:bg-black/60 para oscuro. 
@@ -56,8 +57,11 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
 
           {/* Botón Colapsar */}
           <div className="w-4 flex justify-end">
-            <button onClick={() => setIsOpen(false)} className="hover:text-red-500 text-neutral-400 transition-colors">
-              <ChevronDown size={20} />
+            <button 
+              onClick={() => setIsOpen(true)} 
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] ... shadow-2xl"
+            >
+              <ChevronUp size={24} /> {/* Hazlo un poco más grande para dedos */}
             </button>
           </div>
         </div>
