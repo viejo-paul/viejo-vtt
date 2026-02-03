@@ -9,7 +9,7 @@ export const DiceManager = {
     diceBox = new DiceBox({
       assetPath: '/assets/dice-box/',
       container: containerId,
-      scale: 4,
+      scale: 3.5,
       themeColor: '#e5e5e5', 
       fov: 50,
       gravity: 2,
