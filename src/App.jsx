@@ -21,7 +21,7 @@ function App() {
   
   // GESTIÓN DE MÚLTIPLES VENTANAS
   const [activeModal, setActiveModal] = useState(null); 
-  const [activeHandouts, setActiveHandouts] = useState([]); // <-- Array para acumular ventanas
+  const [activeHandouts, setActiveHandouts] = usePersistentState('vtt-active-handouts', []);
 
   const [diceReady, setDiceReady] = useState(false);
   const initialized = useRef(false);

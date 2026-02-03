@@ -21,7 +21,7 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
             
             {/* NUEVO BOTÓN IMAGEN */}
-            <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Imagen" colorClass="bg-pink-600" borderClass="border-pink-500" />
+            <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Handout" colorClass="bg-pink-600" borderClass="border-pink-500" />
             
             <FooterButton active={isHistoryOpen} onClick={onToggleHistory} icon={ScrollText} label="Historial" colorClass="bg-indigo-600" borderClass="border-indigo-500" />
           </div>

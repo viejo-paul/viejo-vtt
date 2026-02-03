@@ -30,7 +30,7 @@ function Header({ isOpen, setIsOpen, onOpenBackgroundModal }) { // Cambiamos pro
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          <button onClick={() => setIsOpen(false)} className="flex items-center justify-center w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-500 hover:bg-red-100 hover:text-red-600 hover:scale-110 transition-all shadow-sm ml-2">
+          <button onClick={() => setIsOpen(false)} className="flex items-center justify-center w-10 h-10 bg-white dark:bg-black/80 p-3 rounded-full shadow-2xl border border-black/10 dark:border-white/10 text-emerald-600 dark:text-emerald-500 hover:scale-110 transition-transform shadow-sm ml-2">
             <ChevronUp size={22} strokeWidth={3} />
           </button>
         </div>
