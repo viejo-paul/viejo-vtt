@@ -18,7 +18,17 @@ const DieShape = ({ sides, color, value }) => {
 
 function RollHistory({ logs, onClose, onClear }) {
   const [size, setSize] = usePersistentState('vtt-history-size', { w: 320, h: 450 });
-  const [position, setPosition, keepInBounds] = useWindowPosition('vtt-history-pos', { x: 400, y: 50 }, size);
+  // 1. Añadimos un pequeño truco: si el ancho de pantalla es < 600, forzamos x:10, y:10
+  const isMobile = window.innerWidth < 600;
+  // Detectamos si es móvil
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  
+  // Posición inicial: si es móvil, ignoramos valores guardados locos y centramos un poco
+  const [position, setPosition, keepInBounds] = useWindowPosition(
+    'vtt-history-pos', 
+    isMobile ? { x: 20, y: 80 } : { x: 400, y: 50 }, 
+    isMobile ? { w: 280, h: 400 } : size
+  ); 
   const [isMinimized, setIsMinimized] = usePersistentState('vtt-history-minimized', false);
   
   const [isDragging, setIsDragging] = useState(false);

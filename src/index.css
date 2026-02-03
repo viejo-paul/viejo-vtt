@@ -36,9 +36,10 @@ body {
 
 /* index.css */
 @media (max-width: 640px) {
-  .vtt-window { /* Si añades esta clase a tus ventanas */
-    width: 90vw !important;
-    max-width: 320px;
+  /* Forzamos que las ventanas no midan más que el ancho del móvil */
+  .absolute.z-30, .absolute.z-40 {
+    max-width: 92vw !important;
+    left: 4vw !important; /* Centrado automático lateral en móvil */
   }
 }
 
@@ -49,3 +50,4 @@ body {
   position: fixed;
   width: 100%;
 }
+

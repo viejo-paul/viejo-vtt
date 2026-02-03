@@ -36,13 +36,16 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
               </div>
             </button>
 
-            {/* Botón HISTORIAL */}
+            {/* Botón HISTORIAL en Footer.jsx */}
             <button 
-              onClick={onToggleHistory}
-              className="group h-10 flex items-center"
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleHistory();
+              }}
+              className="group h-10 flex items-center outline-none" // Añadimos outline-none para evitar marcos feos
             >
               <div className={`
-                px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 border
+                px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2 border pointer-events-none
                 ${isHistoryOpen 
                   ? 'bg-indigo-600 text-white shadow-lg border-indigo-500' 
                   : 'bg-black/5 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 hover:bg-indigo-600/20 hover:text-indigo-700 dark:hover:text-white border-transparent hover:border-indigo-500/30'}
@@ -53,7 +56,6 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
                 </span>
               </div>
             </button>
-          </div>
 
           {/* Botón Colapsar */}
           <div className="w-4 flex justify-end">
