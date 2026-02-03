@@ -12,7 +12,7 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
       >
         {/* CAMBIO: bg-white/80 para modo claro y dark:bg-black/60 para oscuro. 
             También ajustamos el borde a dark:border-white/10 */}
-        <div className="bg-white/80 dark:bg-black/60 backdrop-blur-md border-t border-black/5 dark:border-white/10 h-14 px-4 flex justify-between items-center gap-4 transition-colors duration-300">
+        <div className="bg-white/80 dark:bg-black/60 backdrop-blur-md border-t border-black/5 dark:border-white/10 h-14 px-4 flex justify-between items-center gap-4 transition-colors duration-300"></div>
           
           <div className="w-4"></div>
 
