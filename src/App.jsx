@@ -3,6 +3,8 @@ import { Routes, Route, useParams, useLocation, useNavigate, HashRouter } from '
 import { ChevronDown, Eraser, ImageOff, RotateCcw } from 'lucide-react';
 import { useRoomSync } from './hooks/useRoomSync';
 import BoardCanvas from './modules/BoardCanvas'; // <--- IMPORTAR NUEVO TABLERO
+import NotesManager from './modules/NotesManager'; // <--- NUEVO GESTOR NOTAS
+import NoteWindow from './modules/NoteWindow'; // <--- NUEVO NOTAS
 
 import DiceConsole from './modules/DiceConsole';
 import RollHistory from './modules/RollHistory';
@@ -55,14 +57,19 @@ function GameLayout() {
 
   // 3. SYNC (Una sola llamada)
   const { 
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata,
-    emitLog, emitBackground, emitHandout, removeHandout, emitMetadata 
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes,
+    emitLog, emitBackground, emitHandout, removeHandout, emitMetadata,
+    emitNote, removeNote 
   } = useRoomSync(slug, userProfile, isSessionActive);
 
   // 4. MODALES Y DADOS
   const [activeModal, setActiveModal] = useState(null); 
   const [diceReady, setDiceReady] = useState(false);
   const initialized = useRef(false);
+
+  // ESTADO PARA NOTAS
+  const [showNotesManager, setShowNotesManager] = useState(false);
+  const [openNotes, setOpenNotes] = useState([]);
 
   // Inicialización 3D
   useEffect(() => {
@@ -228,6 +235,35 @@ function GameLayout() {
       {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={() => {}} />}
       {remoteHandouts.map(h => <ImageWindow key={h.id} id={h.id} data={h} onClose={() => removeHandout(h.id)} />)}
 
+      {/* RENDERIZAR NOTAS ABIERTAS */}
+      {openNotes.map(note => (
+        <NoteWindow 
+          key={note.id} 
+          id={note.id} 
+          data={note} 
+          onClose={() => setOpenNotes(prev => prev.filter(n => n.id !== note.id))} 
+        />
+      ))}
+
+      {/* GESTOR DE NOTAS (MODAL) */}
+      {showNotesManager && (
+        <NotesManager 
+          notes={remoteNotes}
+          connectedPlayers={connectedPlayers}
+          currentUser={userProfile}
+          onEmitNote={emitNote}
+          onDeleteNote={removeNote}
+          onOpenNote={(note) => {
+            // Añadir a openNotes si no está ya
+            if (!openNotes.find(n => n.id === note.id)) {
+              setOpenNotes(prev => [...prev, note]);
+            }
+            setShowNotesManager(false); // Cerrar gestor al abrir nota
+          }}
+          onClose={() => setShowNotesManager(false)}
+        />
+      )}
+
       <ResourceModal 
         isOpen={!!activeModal} 
         onClose={() => setActiveModal(null)} 
@@ -237,7 +273,8 @@ function GameLayout() {
         showTitleInput={activeModal === 'handout'} 
       />
 
-      <Footer isOpen={footerOpen} setIsOpen={setFooterOpen} onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory} onOpenImageModal={() => setActiveModal('handout')} />
+      <Footer isOpen={footerOpen} setIsOpen={setFooterOpen} onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory} onOpenImageModal={() => setActiveModal('handout')} onOpenNotes={() => setShowNotesManager(true)} 
+      />
     </>
   );
 }

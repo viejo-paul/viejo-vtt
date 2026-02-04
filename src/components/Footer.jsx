@@ -1,8 +1,7 @@
-import { ChevronDown, ChevronUp, Dices, ScrollText, Image as ImageIcon } from 'lucide-react'; // Importamos Image
+import { ChevronDown, ChevronUp, Dices, ScrollText, Image as ImageIcon, StickyNote } from 'lucide-react'; // Importamos StickyNote
 
-function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenImageModal }) {
+function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenImageModal, onOpenNotes }) { // Nuevo prop onOpenNotes
   
-  // Componente auxiliar para botones del footer
   const FooterButton = ({ active, onClick, icon: Icon, label, colorClass, borderClass }) => (
     <button onClick={(e) => { e.preventDefault(); onClick(); }} className="group h-10 flex items-center outline-none">
       <div className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border pointer-events-none ${active ? `${colorClass} text-white shadow-lg ${borderClass}` : 'bg-black/5 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 border-transparent hover:bg-black/10 dark:hover:bg-white/10'}`}>
@@ -19,9 +18,10 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
 
           <div className="flex gap-2 sm:gap-4">
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
-            
-            {/* NUEVO BOTÓN IMAGEN */}
             <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Handout" colorClass="bg-pink-600" borderClass="border-pink-500" />
+            
+            {/* NUEVO BOTÓN NOTAS */}
+            <FooterButton active={false} onClick={onOpenNotes} icon={StickyNote} label="Notas" colorClass="bg-yellow-500" borderClass="border-yellow-600" />
             
             <FooterButton active={isHistoryOpen} onClick={onToggleHistory} icon={ScrollText} label="Historial" colorClass="bg-indigo-600" borderClass="border-indigo-500" />
           </div>
