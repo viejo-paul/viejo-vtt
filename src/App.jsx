@@ -59,7 +59,7 @@ function GameLayout() {
   const { 
     remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes,
     emitLog, emitBackground, emitHandout, removeHandout, emitMetadata,
-    emitNote, removeNote 
+    emitNote, removeNote, removeLogs 
   } = useRoomSync(slug, userProfile, isSessionActive);
 
   // 4. MODALES Y DADOS
@@ -232,7 +232,7 @@ function GameLayout() {
       </div>
 
       {showConsole && <DiceConsole onClose={() => setShowConsole(false)} onRoll={handleConsoleRoll} />}
-      {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={() => {}} />}
+      {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={removeLogs} />}
       {remoteHandouts.map(h => <ImageWindow key={h.id} id={h.id} data={h} onClose={() => removeHandout(h.id)} />)}
 
       {/* RENDERIZAR NOTAS ABIERTAS */}

@@ -95,9 +95,14 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
     remove(ref(database, `rooms/${slug}/notes/${noteId}`));
   };
 
+  const removeLogs = () => {
+    if (isSessionActive) set(logsRef, null); // Borra todo el nodo logs
+  };
+
   return {
     remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes, // <--- EXPORTAR
     emitLog, emitBackground, emitHandout, removeHandout, emitMetadata, 
+    removeLogs,
     emitNote, removeNote // <--- EXPORTAR
   };
 }

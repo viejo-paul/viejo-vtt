@@ -42,25 +42,54 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
 
   const handleMouseUp = () => setIsDragging(false);
 
+  // SUSTITUYE LOS HANDLERS TÁCTILES POR ESTOS:
   const handleTouchStart = (e) => {
     if (e.touches.length === 1) {
+      // 1 Dedo: Mover (Pan)
       setIsDragging(true);
       const touch = e.touches[0];
       dragStart.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+    } else if (e.touches.length === 2) {
+      // 2 Dedos: Iniciar Zoom (Pinch)
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      lastTouchDistance.current = dist;
     }
   };
 
   const handleTouchMove = (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    const newX = touch.clientX - dragStart.current.x;
-    const newY = touch.clientY - dragStart.current.y;
-    setPosition({ x: newX, y: newY });
+    // Prevenir gestos nativos (zoom de página)
+    // e.preventDefault(); // Si usas touch-none en CSS no hace falta, pero mal no hace.
+
+    if (e.touches.length === 1 && isDragging) {
+      // 1 Dedo: Mover
+      const touch = e.touches[0];
+      setPosition({ 
+        x: touch.clientX - dragStart.current.x, 
+        y: touch.clientY - dragStart.current.y 
+      });
+    } else if (e.touches.length === 2) {
+      // 2 Dedos: Zoom
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+
+      if (lastTouchDistance.current) {
+        const delta = dist - lastTouchDistance.current;
+        // Sensibilidad del zoom táctil (ajusta el 0.005 si va muy rápido/lento)
+        const newScale = Math.max(0.1, Math.min(5, scale + delta * 0.005));
+        setScale(newScale);
+      }
+      lastTouchDistance.current = dist;
+    }
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    lastTouchDistance.current = null;
+    lastTouchDistance.current = null; // Resetear distancia al levantar dedos
   };
 
   const handleSliderChange = (e) => {
