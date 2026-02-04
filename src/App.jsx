@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams, useLocation, useNavigate, HashRouter } from 'react-router-dom';
-import { Eraser, ImageOff, RotateCcw } from 'lucide-react';
+import { ChevronDown, Eraser, ImageOff, RotateCcw } from 'lucide-react';
 import { useRoomSync } from './hooks/useRoomSync'; 
 
+// Importaciones
 import DiceConsole from './modules/DiceConsole';
 import RollHistory from './modules/RollHistory';
 import ImageWindow from './modules/ImageWindow';
@@ -15,7 +16,7 @@ import { usePersistentState } from './hooks/usePersistentState';
 import { DiceManager } from './engine/DiceManager'; 
 
 function App() {
-  // Inicialización temprana del tema para evitar flashes blancos en Lobby
+  // Fix tema inicial
   useEffect(() => {
     const savedTheme = localStorage.getItem('vtt-theme');
     if (savedTheme === '"dark"') document.documentElement.classList.add('dark');
@@ -37,105 +38,77 @@ function App() {
 function GameLayout() {
   const { slug } = useParams();
   const location = useLocation(); 
+  const navigate = useNavigate(); // Para el botón salir
   
-  // ==========================================
-  // 1. GESTIÓN DE IDENTIDAD
-  // ==========================================
-  // Guardamos el perfil "global" en el navegador, pero podemos cambiarlo
+  // GENERAR ID DE SESIÓN ÚNICO (Para evitar doble roll)
+  // useRef mantiene el valor entre renderizados sin provocar re-render
+  const mySessionId = useRef(Math.random().toString(36).substr(2, 9));
+
+  // DATOS
   const [userProfile, setUserProfile] = usePersistentState('vtt-user-profile', null);
   const [roomData, setRoomData] = useState(null);
 
-  // ==========================================
-  // 2. CONEXIÓN FIREBASE
-  // ==========================================
-  const { 
-    remoteLogs, remoteBg, remoteHandouts, 
-    emitLog, emitBackground, emitHandout, removeHandout 
-  } = useRoomSync(slug, userProfile);
-
-  // ==========================================
-  // 3. PERSISTENCIA SCOPED (POR SALA)
-  // ==========================================
-  // Truco: Usamos el slug en la clave. Si no hay slug (lobby), usamos 'lobby'.
+  // UI STATES (Scopes por sala)
   const scope = slug || 'lobby';
-  
   const [headerOpen, setHeaderOpen] = usePersistentState(`vtt-${scope}-header-open`, true);
   const [footerOpen, setFooterOpen] = usePersistentState(`vtt-${scope}-footer-open`, true);
   const [showConsole, setShowConsole] = usePersistentState(`vtt-${scope}-show-console`, false);
   const [showHistory, setShowHistory] = usePersistentState(`vtt-${scope}-show-history`, false);
-  // El tema es global, no depende de la sala
   const [theme] = usePersistentState('vtt-theme', 'dark');
+  
+  // SYNC
+  const { 
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, // <--- Recibimos jugadores
+    emitLog, emitBackground, emitHandout, removeHandout 
+  } = useRoomSync(slug, userProfile);
+  
+  const [activeModal, setActiveModal] = useState(null); 
+  const [diceReady, setDiceReady] = useState(false);
+  const initialized = useRef(false);
 
-  // ==========================================
-  // 4. LÓGICA DE DADOS REMOTA (SYNC 3D)
-  // ==========================================
-  const lastProcessedLogId = useRef(0);
-  const diceReady = useRef(false);
-
-  // Inicializar Motor 3D
+  // Inicialización 3D
   useEffect(() => {
-    if (diceReady.current) return;
-    diceReady.current = true;
+    if (initialized.current) return;
+    initialized.current = true;
     DiceManager.init('#dice-canvas').then(() => {
-      // Pequeño delay para asegurar carga
-      setTimeout(() => {
-        DiceManager.resize();
-        DiceManager.updateTheme(theme);
-      }, 200);
+      setDiceReady(true);
+      setTimeout(() => { DiceManager.resize(); DiceManager.updateTheme(theme); }, 200);
     });
-    
     const handleResize = () => DiceManager.resize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Actualizar tema si cambia
-  useEffect(() => {
-    try { DiceManager.updateTheme(theme); } catch(e){}
-  }, [theme]);
+  useEffect(() => { if (diceReady) try { DiceManager.updateTheme(theme); } catch(e){} }, [theme, diceReady]);
 
-  // EL CEREBRO DE SINCRONIZACIÓN VISUAL
-  // Cuando llegan logs nuevos de Firebase, miramos si hay alguno nuevo para rodar
+  // --- FIX DOBLE ROLL ---
+  const lastProcessedLogId = useRef(0);
+
   useEffect(() => {
     if (remoteLogs.length > 0) {
-      const latestLog = remoteLogs[0]; // El más reciente (porque los ordenamos en el hook)
+      const latestLog = remoteLogs[0];
       
-      // Si el ID del log es mayor que el último procesado...
       if (latestLog.id > lastProcessedLogId.current) {
-        
-        // Evitamos rodar al entrar en la sala (carga inicial)
-        // Solo rodamos si el log es "fresco" (menos de 5 segundos de antigüedad)
         const isFresh = (Date.now() - latestLog.id) < 5000;
         
-        if (isFresh) {
-          // Convertimos el formato de log guardado al formato que necesita DiceManager
+        // AQUÍ ESTÁ EL TRUCO:
+        // Si el log tiene MI sessionId, NO lo ruedo (porque ya lo rodé localmente)
+        const isMyRoll = latestLog.sessionId === mySessionId.current;
+
+        if (isFresh && !isMyRoll) {
           const rollConfig = latestLog.results.map(r => ({
-             sides: parseInt(r.sides), 
-             qty: 1, // En el log guardamos dados individuales, así que qty siempre 1 por grupo visual
-             themeColor: r.color
+             sides: parseInt(r.sides), qty: 1, themeColor: r.color
           }));
-          
-          // ¡RODAMOS SIN CALCULAR RESULTADO! (Solo efecto visual)
-          // El resultado ya lo tenemos en el log, DiceManager solo debe "actuar"
-          // NOTA: DiceManager.roll devuelve resultados aleatorios. 
-          // Para una sync perfecta, necesitaríamos un DiceManager que acepte resultados forzados.
-          // Por ahora, para mantenerlo simple, dejamos que ruede aleatorio visualmente,
-          // pero mostramos el resultado REAL numérico en el Historial.
-          DiceManager.roll(rollConfig).then(() => {
-             // Roll visual completado
-          });
+          DiceManager.roll(rollConfig);
         }
-        
         lastProcessedLogId.current = latestLog.id;
       }
     }
   }, [remoteLogs]);
 
-  // ==========================================
-  // 5. MANEJADORES
-  // ==========================================
+  // --- MANEJADOR DE ROLL ---
   const handleConsoleRoll = async (rollConfig, modifier = 0) => {
-    // 1. Nosotros tiramos (Generamos el azar aquí)
+    // 1. Rodamos local (inmediato)
     const results = await DiceManager.roll(rollConfig);
     
     if (results.length > 0) {
@@ -144,32 +117,34 @@ function GameLayout() {
       
       const newLog = {
         id: Date.now(),
+        sessionId: mySessionId.current, // <--- ENVIAMOS NUESTRA FIRMA
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        // user se añade en el hook
         modifier: modVal,
         total: naturalTotal + modVal,
         results: results.map(r => ({ value: r.value, sides: r.sides, color: r.themeColor }))
       };
       
-      // 2. Enviamos la Verdad a la nube
       if (slug) emitLog(newLog);
       setShowHistory(true);
     }
   };
 
-  // Configuración de Sala
+  // Configuración Sala
   useEffect(() => {
     if (slug) {
       const title = location.state?.roomTitle || slug.split('-')[0].toUpperCase();
       const code = location.state?.roomCode || slug.split('-').pop();
       const isGM = location.state?.isGM || false;
+      
+      // Si entramos como DJ y el perfil actual no tiene ese dato, podríamos actualizarlo aquí
+      // Pero IdentityModal ya maneja la creación.
+      
       setRoomData({ title, code, slug, isGM });
     } else {
       setRoomData(null);
     }
   }, [slug, location.state]);
 
-  const [activeModal, setActiveModal] = useState(null); 
   const handleResourceSubmit = (data) => {
     if (activeModal === 'background') {
       if (slug) emitBackground(data.src);
@@ -180,71 +155,85 @@ function GameLayout() {
     setActiveModal(null);
   };
 
-  // ==========================================
-  // 6. RENDERIZADO
-  // ==========================================
+  // --- RENDERIZADO ---
+  if (!slug) return (<> {remoteBg && <div className="absolute inset-0 z-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${remoteBg})` }} />} <LobbyModal /> </>);
 
-  // A) LOBBY
-  if (!slug) {
+  // Pasamos el isGM de la sala al IdentityModal para que sepa si eres DJ
+  if (!userProfile) {
     return (
-      <>
-        {remoteBg && <div className="absolute inset-0 z-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${remoteBg})` }} />}
-        <LobbyModal />
-      </>
+      <IdentityModal 
+        onComplete={(profile) => {
+           // Si la sala dice que soy DJ, forzamos esa propiedad en el perfil
+           const finalProfile = { ...profile, isGM: roomData?.isGM || profile.isGM };
+           setUserProfile(finalProfile);
+        }} 
+        existingProfile={userProfile} 
+      />
     );
   }
 
-  // B) LOGIN SALA
-  if (!userProfile) {
-    return <IdentityModal onComplete={setUserProfile} existingProfile={userProfile /*Pasamos null si no hay*/} />;
-  }
-  
-  // Un pequeño hack: si tenemos perfil pero acabamos de entrar y queremos confirmar
-  // IdentityModal ya maneja esto internamente si le pasas existingProfile,
-  // pero aquí si userProfile es true, renderizamos el juego. 
-  // Para forzar la pregunta "Continuar como..." necesitamos un estado intermedio 'confirmed'.
-  // Para simplificar hoy: Asumimos que si hay perfil, entra directo.
-  // Si quieres el modal de "Continuar", necesitaríamos cambiar la condición arriba.
-  // Vamos a dejarlo así por ahora para no complicar más el código hoy.
-  
   return (
     <>
-      {/* FONDO */}
       {remoteBg && (
         <div className="absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-500" style={{ backgroundImage: `url(${remoteBg})`, imageRendering: '-webkit-optimize-contrast' }}>
           <div className="absolute inset-0 bg-white/30 dark:bg-black/40 backdrop-blur-[0px]"></div>
         </div>
       )}
 
+      {/* HEADER ACTUALIZADO */}
       <Header 
-        isOpen={headerOpen} setIsOpen={setHeaderOpen} 
+        isOpen={headerOpen} 
+        setIsOpen={setHeaderOpen} 
         onOpenBackgroundModal={() => setActiveModal('background')}
-        roomData={roomData} userProfile={userProfile}
+        roomData={roomData} 
+        userProfile={userProfile}
+        connectedPlayers={connectedPlayers} // <--- NUEVA PROP
+        onExit={() => { // <--- FUNCIÓN SALIR
+          navigate('/');
+          window.location.reload(); // Limpieza dura para asegurar lobby fresco
+        }}
       />
+      
+      {!headerOpen && (
+        <button onClick={() => setHeaderOpen(true)} className="fixed top-6 left-1/2 -translate-x-1/2 z-[90] bg-white dark:bg-black/80 p-3 rounded-full shadow-2xl border border-black/10 dark:border-white/10 text-emerald-600 dark:text-emerald-500 hover:scale-110 transition-transform">
+          <ChevronDown size={24} />
+        </button>
+      )}
 
       {/* BOTONERA LATERAL */}
-      <div className="absolute top-24 right-6 z-20 flex flex-col gap-3">
+      <div className="absolute top-28 right-6 z-20 flex flex-col gap-3">
         <button onClick={() => DiceManager.clear()} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-red-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><Eraser size={20} /></button>
         {remoteBg && <button onClick={() => emitBackground(null)} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-orange-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><ImageOff size={20} /></button>}
-        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-blue-600 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl group"><RotateCcw size={20} className="group-active:-rotate-180 transition-transform duration-500" /></button>
+        {/* 3. RESET UI (INTELIGENTE) */}
+        <button 
+          onClick={() => { 
+            // Lista de cosas que NO queremos borrar
+            const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
+            
+            // Recorremos la memoria y borramos todo lo que no esté en la lista blanca
+            Object.keys(localStorage).forEach(key => {
+              if (!keysToKeep.includes(key)) {
+                localStorage.removeItem(key);
+              }
+            });
+            
+            // Recargamos para aplicar cambios
+            window.location.reload(); 
+          }} 
+          className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-blue-600 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl group" 
+          title="Recolocar Ventanas (Reset UI)"
+        >
+          <RotateCcw size={20} className="group-active:-rotate-180 transition-transform duration-500" />
+        </button>
       </div>
 
       {showConsole && <DiceConsole onClose={() => setShowConsole(false)} onRoll={handleConsoleRoll} />}
       {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={() => {}} />}
       {remoteHandouts.map(h => <ImageWindow key={h.id} id={h.id} data={h} onClose={() => removeHandout(h.id)} />)}
 
-      <ResourceModal 
-        isOpen={!!activeModal} onClose={() => setActiveModal(null)} onSubmit={handleResourceSubmit} 
-        title={activeModal === 'background' ? "Configurar Fondo" : "Nueva Ayuda"}
-        showTitleInput={activeModal === 'handout'}
-      />
+      <ResourceModal isOpen={!!activeModal} onClose={() => setActiveModal(null)} onSubmit={handleResourceSubmit} title={activeModal === 'background' ? "Configurar Fondo" : "Nueva Ayuda"} showTitleInput={activeModal === 'handout'} />
 
-      <Footer 
-        isOpen={footerOpen} setIsOpen={setFooterOpen} 
-        onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} 
-        onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory}
-        onOpenImageModal={() => setActiveModal('handout')} 
-      />
+      <Footer isOpen={footerOpen} setIsOpen={setFooterOpen} onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory} onOpenImageModal={() => setActiveModal('handout')} />
     </>
   );
 }
