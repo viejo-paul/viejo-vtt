@@ -7,6 +7,7 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isZoomOpen, setIsZoomOpen] = useState(false); 
   
+  // Referencias para cálculos
   const dragStart = useRef({ x: 0, y: 0 });
   const lastTouchDistance = useRef(null); 
 
@@ -42,7 +43,7 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // SUSTITUYE LOS HANDLERS TÁCTILES POR ESTOS:
+  // --- LÓGICA TÁCTIL (MÓVIL / PINCH TO ZOOM) ---
   const handleTouchStart = (e) => {
     if (e.touches.length === 1) {
       // 1 Dedo: Mover (Pan)
@@ -60,9 +61,6 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
   };
 
   const handleTouchMove = (e) => {
-    // Prevenir gestos nativos (zoom de página)
-    // e.preventDefault(); // Si usas touch-none en CSS no hace falta, pero mal no hace.
-
     if (e.touches.length === 1 && isDragging) {
       // 1 Dedo: Mover
       const touch = e.touches[0];
@@ -76,10 +74,9 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-
       if (lastTouchDistance.current) {
         const delta = dist - lastTouchDistance.current;
-        // Sensibilidad del zoom táctil (ajusta el 0.005 si va muy rápido/lento)
+        // Factor 0.005 regula la velocidad del zoom con los dedos
         const newScale = Math.max(0.1, Math.min(5, scale + delta * 0.005));
         setScale(newScale);
       }
@@ -89,7 +86,7 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
 
   const handleTouchEnd = () => {
     setIsDragging(false);
-    lastTouchDistance.current = null; // Resetear distancia al levantar dedos
+    lastTouchDistance.current = null;
   };
 
   const handleSliderChange = (e) => {
@@ -108,6 +105,7 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* CAPA IMAGEN */}
       {src ? (
         <div 
             style={{ 
@@ -126,14 +124,11 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
         </div>
       ) : null}
 
-      {/* --- BOTONERA FLOTANTE IZQUIERDA --- */}
-      
-      {/* 1. BOTÓN CONFIGURACIÓN (Estilo Neutro Unificado) */}
+      {/* BOTÓN DE MAPA (SOLO GM) */}
       {isGM && (
          <div className="absolute top-28 left-6 z-20" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
             <button 
                 onClick={onConfigBackground} 
-                // CAMBIO: Colores neutros (gris) en lugar de emerald, igual que la lupa
                 className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full text-neutral-500 dark:text-neutral-400 hover:text-white hover:bg-neutral-500 border border-neutral-300 dark:border-white/10 transition-all shadow-xl" 
                 title="Configurar Tablero"
             >
@@ -142,22 +137,17 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
          </div>
       )}
 
-      {/* 2. CONTROLES DE ZOOM */}
+      {/* CONTROLES DE ZOOM */}
       <div className={`absolute left-6 z-20 flex flex-col items-center gap-2 transition-all duration-300 ${isGM ? 'top-44' : 'top-28'}`} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-        
-        {/* Botón Toggle (Ahora con icono ZoomIn/Lupa+) */}
         <button 
           onClick={() => setIsZoomOpen(!isZoomOpen)}
           className={`bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full border border-neutral-300 dark:border-white/10 transition-all shadow-xl ${isZoomOpen ? 'bg-neutral-100 dark:bg-white/20 text-emerald-500' : 'text-neutral-500 dark:text-neutral-400 hover:text-white hover:bg-neutral-500'}`}
-          title="Controles de Zoom" // CAMBIO: Tooltip añadido
+          title="Controles de Zoom"
         >
-          {/* CAMBIO: Icono ZoomIn (Lupa +) en vez de Search */}
           <ZoomIn size={20} />
         </button>
 
-        {/* Panel Desplegable */}
         <div className={`flex flex-col items-center gap-1 bg-white dark:bg-neutral-900/80 backdrop-blur-md rounded-full border border-neutral-300 dark:border-white/10 shadow-xl overflow-hidden transition-all duration-300 origin-top ${isZoomOpen ? 'max-h-64 p-1 opacity-100' : 'max-h-0 p-0 opacity-0 pointer-events-none'}`}>
-            
             <button onClick={() => setScale(s => Math.min(5, s + 0.2))} className="p-2 hover:bg-neutral-100 dark:hover:bg-white/10 rounded-full text-neutral-600 dark:text-neutral-300" title="Acercar">
               <ZoomIn size={18} />
             </button>
@@ -189,7 +179,6 @@ function BoardCanvas({ src, isGM, onConfigBackground }) {
              {Math.round(scale * 100)}%
            </div>
         )}
-
       </div>
     </div>
   );

@@ -8,7 +8,8 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
   const [remoteHandouts, setRemoteHandouts] = useState([]);
   const [connectedPlayers, setConnectedPlayers] = useState([]);
   const [remoteMetadata, setRemoteMetadata] = useState(null);
-  const [remoteNotes, setRemoteNotes] = useState([]); // <--- NUEVO
+  const [remoteNotes, setRemoteNotes] = useState([]); // <--- FALTABA ESTO
+  const [remoteAudio, setRemoteAudio] = useState(null); // <--- FALTABA ESTO (Si pusiste música)
 
   // Referencias
   const roomRef = ref(database, `rooms/${slug}`);
@@ -17,7 +18,8 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
   const handoutsRef = ref(database, `rooms/${slug}/handouts`);
   const playersRef = ref(database, `rooms/${slug}/players`);
   const metadataRef = ref(database, `rooms/${slug}/metadata`);
-  const notesRef = ref(database, `rooms/${slug}/notes`); // <--- NUEVO
+  const notesRef = ref(database, `rooms/${slug}/notes`); // <--- FALTABA ESTO
+  const audioRef = ref(database, `rooms/${slug}/audio`); // <--- FALTABA ESTO
 
   useEffect(() => {
     if (!slug || !userProfile || !isSessionActive) return;
@@ -46,8 +48,12 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
     // ESCUCHAR NOTAS
     const unsubscribeNotes = onValue(notesRef, (snapshot) => {
       const data = snapshot.val();
-      // Ordenamos por fecha (más nuevas arriba)
       setRemoteNotes(data ? Object.values(data).sort((a, b) => b.createdAt - a.createdAt) : []);
+    });
+
+    // ESCUCHAR AUDIO
+    const unsubscribeAudio = onValue(audioRef, (snapshot) => {
+      setRemoteAudio(snapshot.val() || { url: '', isPlaying: false });
     });
 
     return () => {
@@ -57,10 +63,11 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
       unsubscribePlayers();
       unsubscribeMetadata();
       unsubscribeNotes();
+      unsubscribeAudio();
     };
   }, [slug, isSessionActive]);
 
-  // ... (Gestión de presencia sigue igual) ...
+  // GESTIÓN DE PRESENCIA
   useEffect(() => {
     if (!slug || !userProfile || !isSessionActive) return;
     const mySessionId = `${userProfile.name}-${Math.floor(Math.random() * 100000)}`;
@@ -69,7 +76,6 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
     onDisconnect(myUserRef).remove();
     return () => { remove(myUserRef); };
   }, [slug, isSessionActive]);
-
 
   // EMITTERS
   const emitLog = (logData) => { if (isSessionActive) { const newLogRef = push(logsRef); set(newLogRef, { ...logData, user: userProfile }); }};
@@ -83,26 +89,19 @@ export function useRoomSync(slug, userProfile, isSessionActive) {
   };
   const removeHandout = (handoutId) => { remove(ref(database, `rooms/${slug}/handouts/${handoutId}`)); };
 
-  // NUEVOS EMITTERS PARA NOTAS
-  const emitNote = (noteData) => {
-    if (!isSessionActive) return;
-    // Usamos el ID de la nota como clave
-    const specificNoteRef = ref(database, `rooms/${slug}/notes/${noteData.id}`);
-    set(specificNoteRef, noteData);
-  };
+  // EMITTERS NOTAS
+  const emitNote = (noteData) => { if (isSessionActive) set(ref(database, `rooms/${slug}/notes/${noteData.id}`), noteData); };
+  const removeNote = (noteId) => { remove(ref(database, `rooms/${slug}/notes/${noteId}`)); };
 
-  const removeNote = (noteId) => {
-    remove(ref(database, `rooms/${slug}/notes/${noteId}`));
-  };
+  // EMITTER AUDIO
+  const emitAudio = (audioData) => { if (isSessionActive) set(audioRef, audioData); };
 
-  const removeLogs = () => {
-    if (isSessionActive) set(logsRef, null); // Borra todo el nodo logs
-  };
+  // BORRAR LOGS (Papelera)
+  const removeLogs = () => { if (isSessionActive) set(logsRef, null); };
 
   return {
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes, // <--- EXPORTAR
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes, remoteAudio,
     emitLog, emitBackground, emitHandout, removeHandout, emitMetadata, 
-    removeLogs,
-    emitNote, removeNote // <--- EXPORTAR
+    emitNote, removeNote, emitAudio, removeLogs // <--- IMPORTANTE: removeLogs añadido
   };
 }

@@ -1,9 +1,9 @@
-import { ChevronDown, ChevronUp, Dices, ScrollText, Image as ImageIcon, StickyNote } from 'lucide-react'; // Importamos StickyNote
+import { ChevronDown, ChevronUp, Dices, ScrollText, Image as ImageIcon, StickyNote, Music } from 'lucide-react';
 
-function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenImageModal, onOpenNotes }) { // Nuevo prop onOpenNotes
+function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenImageModal, onOpenNotes, onOpenMusic }) {
   
   const FooterButton = ({ active, onClick, icon: Icon, label, colorClass, borderClass }) => (
-    <button onClick={(e) => { e.preventDefault(); onClick(); }} className="group h-10 flex items-center outline-none">
+    <button onClick={(e) => { e.preventDefault(); if(onClick) onClick(); }} className="group h-10 flex items-center outline-none">
       <div className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border pointer-events-none ${active ? `${colorClass} text-white shadow-lg ${borderClass}` : 'bg-black/5 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 border-transparent hover:bg-black/10 dark:hover:bg-white/10'}`}>
         <Icon size={18} /> <span className="text-[10px] font-bold uppercase hidden sm:inline">{label}</span>
       </div>
@@ -16,13 +16,20 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
         <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md border-t border-black/10 dark:border-white/10 h-16 px-4 flex justify-between items-center gap-2 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
           <div className="w-8"></div> 
 
-          <div className="flex gap-2 sm:gap-4">
+          <div className="flex gap-2 sm:gap-4 overflow-x-auto no-scrollbar py-2">
+            {/* 1. TIRADOR (Antes "Dados") */}
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
+            
+            {/* 2. HANDOUT (Antes "Imagen") */}
             <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Handout" colorClass="bg-pink-600" borderClass="border-pink-500" />
             
-            {/* NUEVO BOTÓN NOTAS */}
+            {/* 3. MÚSICA (Nuevo) */}
+            <FooterButton active={false} onClick={onOpenMusic} icon={Music} label="Música" colorClass="bg-violet-600" borderClass="border-violet-500" />
+            
+            {/* 4. NOTAS (Nuevo) */}
             <FooterButton active={false} onClick={onOpenNotes} icon={StickyNote} label="Notas" colorClass="bg-yellow-500" borderClass="border-yellow-600" />
             
+            {/* 5. HISTORIAL (Antes "Log") */}
             <FooterButton active={isHistoryOpen} onClick={onToggleHistory} icon={ScrollText} label="Historial" colorClass="bg-indigo-600" borderClass="border-indigo-500" />
           </div>
 
