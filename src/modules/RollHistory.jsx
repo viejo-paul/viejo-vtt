@@ -97,7 +97,17 @@ function RollHistory({ logs, onClose, onClear }) {
               return (
                 <div key={log.id} className="bg-white dark:bg-white/5 p-3 rounded-xl border border-neutral-200 dark:border-white/5 shadow-sm">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] text-indigo-600 dark:text-indigo-300 font-mono font-bold">{log.time}</span>
+                    
+                    {/* INFO DEL USUARIO Y HORA */}
+                    <div className="flex flex-col">
+                      {log.user && (
+                        <span className="text-[11px] font-bold" style={{ color: log.user.color }}>
+                          {log.user.name}
+                        </span>
+                      )}
+                      <span className="text-[9px] text-neutral-400 font-mono">{log.time}</span>
+                    </div>
+
                     {/* ZONA DEL TOTAL */}
                     <div className="text-right leading-none">
                       <span className={`text-xl font-black ${hasModifier ? 'text-emerald-600 dark:text-emerald-400' : 'text-neutral-800 dark:text-white'}`}>
