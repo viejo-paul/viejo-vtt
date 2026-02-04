@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams, useLocation, useNavigate, HashRouter } from 'react-router-dom';
 import { ChevronDown, Eraser, ImageOff, RotateCcw } from 'lucide-react';
-import { useRoomSync } from './hooks/useRoomSync'; 
+import { useRoomSync } from './hooks/useRoomSync';
+import BoardCanvas from './modules/BoardCanvas'; // <--- IMPORTAR NUEVO TABLERO
 
 import DiceConsole from './modules/DiceConsole';
 import RollHistory from './modules/RollHistory';
@@ -144,8 +145,18 @@ function GameLayout() {
   }, [slug, location.state, remoteMetadata, isSessionActive]);
 
   const handleResourceSubmit = (data) => {
-    if (activeModal === 'background') { if (slug) emitBackground(data.src); } 
-    else if (activeModal === 'handout') { const newHandout = { id: Date.now(), ...data }; if (slug) emitHandout(newHandout); }
+    if (activeModal === 'background') { 
+        if (slug) emitBackground(data.src); 
+    } else if (activeModal === 'handout') { 
+        const newHandout = { id: Date.now(), ...data }; 
+        if (slug) emitHandout(newHandout); 
+    }
+    setActiveModal(null);
+  };
+
+  // NUEVA FUNCIÓN PARA BORRAR FONDO (Pasada a ResourceModal)
+  const handleClearBackground = () => {
+    if (slug) emitBackground(null);
     setActiveModal(null);
   };
 
@@ -173,15 +184,15 @@ function GameLayout() {
   // 3. Juego
   return (
     <>
-      {remoteBg && (
-        <div className="absolute inset-0 z-0 bg-cover bg-center transition-opacity duration-500" style={{ backgroundImage: `url(${remoteBg})`, imageRendering: '-webkit-optimize-contrast' }}>
-          <div className="absolute inset-0 bg-white/30 dark:bg-black/40 backdrop-blur-[0px]"></div>
-        </div>
-      )}
+      <BoardCanvas 
+        src={remoteBg} 
+        isGM={userProfile?.isGM} 
+        onConfigBackground={() => setActiveModal('background')} 
+      />
 
+      {/* HEADER */}
       <Header 
         isOpen={headerOpen} setIsOpen={setHeaderOpen} 
-        onOpenBackgroundModal={() => setActiveModal('background')}
         roomData={roomData} userProfile={userProfile} connectedPlayers={connectedPlayers} 
         onExit={() => { navigate('/'); window.location.reload(); }}
       />
@@ -194,7 +205,6 @@ function GameLayout() {
 
       <div className="absolute top-28 right-6 z-20 flex flex-col gap-3">
         <button onClick={() => DiceManager.clear()} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-red-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><Eraser size={20} /></button>
-        {remoteBg && <button onClick={() => emitBackground(null)} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-orange-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><ImageOff size={20} /></button>}
         
         {/* RESET UI INTELIGENTE */}
         <button 
@@ -213,7 +223,14 @@ function GameLayout() {
       {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={() => {}} />}
       {remoteHandouts.map(h => <ImageWindow key={h.id} id={h.id} data={h} onClose={() => removeHandout(h.id)} />)}
 
-      <ResourceModal isOpen={!!activeModal} onClose={() => setActiveModal(null)} onSubmit={handleResourceSubmit} title={activeModal === 'background' ? "Configurar Fondo" : "Nueva Ayuda"} showTitleInput={activeModal === 'handout'} />
+      <ResourceModal 
+        isOpen={!!activeModal} 
+        onClose={() => setActiveModal(null)} 
+        onSubmit={handleResourceSubmit} 
+        onClear={activeModal === 'background' && remoteBg ? handleClearBackground : null} // <--- NUEVO
+        title={activeModal === 'background' ? "Configurar Tablero" : "Nueva Ayuda"} // Título retocado
+        showTitleInput={activeModal === 'handout'} 
+      />
 
       <Footer isOpen={footerOpen} setIsOpen={setFooterOpen} onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory} onOpenImageModal={() => setActiveModal('handout')} />
     </>

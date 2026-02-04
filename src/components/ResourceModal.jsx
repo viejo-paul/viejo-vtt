@@ -1,19 +1,18 @@
 import { useState } from 'react';
-import { X, Link, Upload, Type, FileText } from 'lucide-react';
+import { X, Link, Upload, Type, FileText, Trash2 } from 'lucide-react'; // Importamos Trash2
 
-function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = false }) {
+function ResourceModal({ isOpen, onClose, onSubmit, onClear, title, showTitleInput = false }) { // Añadido onClear
   const [activeTab, setActiveTab] = useState('file'); 
   const [urlInput, setUrlInput] = useState('');
   const [titleInput, setTitleInput] = useState('');
 
   if (!isOpen) return null;
 
-  // Validación: Si showTitleInput es true, el título es obligatorio
+  // ... (Lógica de validación igual que antes) ...
   const isSubmitDisabled = showTitleInput && !titleInput.trim();
 
   const handleSubmit = () => {
     if (activeTab === 'url' && urlInput && !isSubmitDisabled) {
-      // Detectamos si parece un PDF por la URL
       const isPdf = urlInput.toLowerCase().endsWith('.pdf');
       onSubmit({ type: 'url', contentType: isPdf ? 'pdf' : 'image', src: urlInput, title: titleInput });
       resetAndClose();
@@ -25,12 +24,20 @@ function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = fals
     if (file && !isSubmitDisabled) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        // Detectamos si es PDF por el tipo de archivo
         const isPdf = file.type === 'application/pdf';
         onSubmit({ type: 'file', contentType: isPdf ? 'pdf' : 'image', src: reader.result, title: titleInput });
         resetAndClose();
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleClear = () => {
+    if (onClear) {
+        if(confirm("¿Seguro que quieres borrar el fondo?")) {
+            onClear();
+            resetAndClose();
+        }
     }
   };
 
@@ -43,7 +50,7 @@ function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = fals
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/20 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-white/20 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Cabecera */}
         <div className="flex justify-between items-center p-4 border-b border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/5">
@@ -52,6 +59,7 @@ function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = fals
         </div>
 
         {/* Tabs */}
+        {/* ... (Igual que antes) ... */}
         <div className="flex border-b border-neutral-200 dark:border-white/10">
           <button onClick={() => setActiveTab('file')} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 ${activeTab === 'file' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/5'}`}>
             <Upload size={16} /> Subir Archivo
@@ -62,10 +70,9 @@ function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = fals
         </div>
 
         {/* Cuerpo */}
-        <div className="p-6 space-y-4">
-          
-          {/* TÍTULO OBLIGATORIO */}
-          {showTitleInput && (
+        <div className="p-6 space-y-4 overflow-y-auto">
+           {/* ... (Inputs de Título y URL/File igual que antes) ... */}
+           {showTitleInput && (
             <div className="relative">
               <Type size={16} className={`absolute top-3 left-3 ${!titleInput ? 'text-red-400' : 'text-emerald-500'}`} />
               <input 
@@ -104,6 +111,18 @@ function ResourceModal({ isOpen, onClose, onSubmit, title, showTitleInput = fals
                 CARGAR
               </button>
             </div>
+          )}
+
+          {/* BOTÓN DE BORRAR (Si se pasa la función onClear) */}
+          {onClear && (
+             <div className="pt-4 mt-2 border-t border-neutral-200 dark:border-white/10">
+                <button 
+                    onClick={handleClear}
+                    className="w-full py-2 flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-bold transition-colors"
+                >
+                    <Trash2 size={16} /> Quitar Imagen Actual
+                </button>
+             </div>
           )}
         </div>
       </div>

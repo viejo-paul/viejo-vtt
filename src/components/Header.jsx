@@ -67,7 +67,7 @@ function Header({ isOpen, setIsOpen, onOpenBackgroundModal, roomData, userProfil
           
           {/* BLOQUE DERECHO: CONTROLES */}
           <div className="flex items-center gap-3">
-            <button onClick={onOpenBackgroundModal} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-600 dark:text-neutral-400 transition-all active:scale-95" title="Cambiar Fondo"><Map size={18} /></button>
+            
             <button onClick={toggleTheme} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-600 dark:text-yellow-400 transition-all active:scale-95">{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
             
             <div className="w-px h-6 bg-neutral-300 dark:bg-white/10 mx-1"></div>
