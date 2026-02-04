@@ -39,27 +39,26 @@ function GameLayout() {
   const navigate = useNavigate();
   const mySessionId = useRef(Math.random().toString(36).substr(2, 9));
 
-  // DATOS
+  // 1. ESTADOS BÁSICOS DE USUARIO Y SESIÓN
   const [userProfile, setUserProfile] = usePersistentState('vtt-user-profile', null);
-  const [roomData, setRoomData] = useState(null);
-  
-  // ESTADO NUEVO: Controla si el usuario ya ha confirmado su identidad en ESTA sesión
   const [isSessionActive, setIsSessionActive] = useState(false);
+  const [roomData, setRoomData] = useState(null);
 
-  // UI STATES
+  // 2. UI STATES (Scopes por sala)
   const scope = slug || 'lobby';
   const [headerOpen, setHeaderOpen] = usePersistentState(`vtt-${scope}-header-open`, true);
   const [footerOpen, setFooterOpen] = usePersistentState(`vtt-${scope}-footer-open`, true);
   const [showConsole, setShowConsole] = usePersistentState(`vtt-${scope}-show-console`, false);
   const [showHistory, setShowHistory] = usePersistentState(`vtt-${scope}-show-history`, false);
   const [theme] = usePersistentState('vtt-theme', 'dark');
-  
-  // SYNC (Ahora recibe isSessionActive)
+
+  // 3. SYNC (Una sola llamada)
   const { 
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers,
-    emitLog, emitBackground, emitHandout, removeHandout 
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata,
+    emitLog, emitBackground, emitHandout, removeHandout, emitMetadata 
   } = useRoomSync(slug, userProfile, isSessionActive);
-  
+
+  // 4. MODALES Y DADOS
   const [activeModal, setActiveModal] = useState(null); 
   const [diceReady, setDiceReady] = useState(false);
   const initialized = useRef(false);
@@ -79,7 +78,7 @@ function GameLayout() {
 
   useEffect(() => { if (diceReady) try { DiceManager.updateTheme(theme); } catch(e){} }, [theme, diceReady]);
 
-  // Sync 3D
+  // Sync 3D (Escuchar tiradas remotas)
   const lastProcessedLogId = useRef(0);
   useEffect(() => {
     if (remoteLogs.length > 0) {
@@ -97,6 +96,7 @@ function GameLayout() {
     }
   }, [remoteLogs]);
 
+  // Manejador de Tirada Local
   const handleConsoleRoll = async (rollConfig, modifier = 0) => {
     const results = await DiceManager.roll(rollConfig);
     if (results.length > 0) {
@@ -116,20 +116,32 @@ function GameLayout() {
     }
   };
 
-  // Configuración de Sala al entrar
+  // Configuración de Sala al entrar (Título y Metadatos)
   useEffect(() => {
     if (slug) {
-      const title = location.state?.roomTitle || slug.split('-')[0].toUpperCase();
+      // Intentamos sacar datos de la navegación (cuando vienes de crear sala)
+      const navTitle = location.state?.roomTitle; 
       const code = location.state?.roomCode || slug.split('-').pop();
-      const isGM = location.state?.isGM || false; // ¿Vengo de crearla?
-      setRoomData({ title, code, slug, isGM });
+      const isGM = location.state?.isGM || false;
       
-      // Al cambiar de sala (o entrar de nuevas), reseteamos la sesión para obligar a confirmar
-      setIsSessionActive(false); 
+      setRoomData({ 
+        // PRIORIDAD: 1. Título de la nube (remoteMetadata), 2. Título de navegación, 3. Fallback del slug
+        title: remoteMetadata?.title || navTitle || slug.split('-')[0].toUpperCase(), 
+        code, 
+        slug, 
+        isGM 
+      });
+
+      // SI SOMOS EL DJ Y TENEMOS UN TÍTULO FRESCO DE NAVEGACIÓN, LO GUARDAMOS EN LA NUBE
+      // (Solo lo hacemos si la sesión está activa para asegurar que emitMetadata funciona)
+      if (isGM && navTitle && isSessionActive) {
+        emitMetadata({ title: navTitle, createdAt: Date.now() });
+      }
+
     } else {
       setRoomData(null);
     }
-  }, [slug, location.state]);
+  }, [slug, location.state, remoteMetadata, isSessionActive]);
 
   const handleResourceSubmit = (data) => {
     if (activeModal === 'background') { if (slug) emitBackground(data.src); } 
@@ -147,7 +159,7 @@ function GameLayout() {
     return (
       <IdentityModal 
         existingProfile={userProfile}
-        isGMRequired={roomData?.isGM} // Pasamos si la sala requiere DJ
+        isGMRequired={roomData?.isGM} 
         onComplete={(profile) => {
            // Actualizamos perfil persistente
            setUserProfile(profile);

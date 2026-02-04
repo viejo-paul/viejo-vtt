@@ -7,6 +7,7 @@ export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo 
   const [remoteBg, setRemoteBg] = useState(null);
   const [remoteHandouts, setRemoteHandouts] = useState([]);
   const [connectedPlayers, setConnectedPlayers] = useState([]);
+  const [remoteMetadata, setRemoteMetadata] = useState(null); // <--- guarda titulo y datos
 
   // Referencias
   const roomRef = ref(database, `rooms/${slug}`);
@@ -14,6 +15,7 @@ export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo 
   const bgRef = ref(database, `rooms/${slug}/background`);
   const handoutsRef = ref(database, `rooms/${slug}/handouts`);
   const playersRef = ref(database, `rooms/${slug}/players`);
+  const metadataRef = ref(database, `rooms/${slug}/metadata`); 
 
   // 1. ESCUCHAR CAMBIOS (Solo si hay slug y la sesión está activa)
   useEffect(() => {
@@ -36,11 +38,17 @@ export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo 
       setConnectedPlayers(data ? Object.values(data) : []);
     });
 
+    // ESCUCHAR METADATOS (TÍTULO)
+    const unsubscribeMetadata = onValue(metadataRef, (snapshot) => {
+      setRemoteMetadata(snapshot.val() || null);
+    });
+
     return () => {
       unsubscribeLogs();
       unsubscribeBg();
       unsubscribeHandouts();
       unsubscribePlayers();
+      unsubscribeMetadata();
     };
   }, [slug, isSessionActive]); // userProfile quitado de deps para evitar reconexión si cambia algo interno irrelevante, pero vigilado arriba
 
@@ -72,6 +80,10 @@ export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo 
     set(newLogRef, { ...logData, user: userProfile });
   };
 
+  const emitMetadata = (meta) => {
+    if(isSessionActive) set(metadataRef, meta);
+  };
+
   const emitBackground = (data) => { if(isSessionActive) set(bgRef, data); };
   
   const emitHandout = (handoutData) => {
@@ -85,7 +97,7 @@ export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo 
   };
 
   return {
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers,
-    emitLog, emitBackground, emitHandout, removeHandout
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, // <--- EXPORTAR
+    emitLog, emitBackground, emitHandout, removeHandout, emitMetadata // <--- EXPORTAR
   };
 }
