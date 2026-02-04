@@ -3,7 +3,6 @@ import { Routes, Route, useParams, useLocation, useNavigate, HashRouter } from '
 import { ChevronDown, Eraser, ImageOff, RotateCcw } from 'lucide-react';
 import { useRoomSync } from './hooks/useRoomSync'; 
 
-// Importaciones
 import DiceConsole from './modules/DiceConsole';
 import RollHistory from './modules/RollHistory';
 import ImageWindow from './modules/ImageWindow';
@@ -16,7 +15,6 @@ import { usePersistentState } from './hooks/usePersistentState';
 import { DiceManager } from './engine/DiceManager'; 
 
 function App() {
-  // Fix tema inicial
   useEffect(() => {
     const savedTheme = localStorage.getItem('vtt-theme');
     if (savedTheme === '"dark"') document.documentElement.classList.add('dark');
@@ -38,17 +36,17 @@ function App() {
 function GameLayout() {
   const { slug } = useParams();
   const location = useLocation(); 
-  const navigate = useNavigate(); // Para el botón salir
-  
-  // GENERAR ID DE SESIÓN ÚNICO (Para evitar doble roll)
-  // useRef mantiene el valor entre renderizados sin provocar re-render
+  const navigate = useNavigate();
   const mySessionId = useRef(Math.random().toString(36).substr(2, 9));
 
   // DATOS
   const [userProfile, setUserProfile] = usePersistentState('vtt-user-profile', null);
   const [roomData, setRoomData] = useState(null);
+  
+  // ESTADO NUEVO: Controla si el usuario ya ha confirmado su identidad en ESTA sesión
+  const [isSessionActive, setIsSessionActive] = useState(false);
 
-  // UI STATES (Scopes por sala)
+  // UI STATES
   const scope = slug || 'lobby';
   const [headerOpen, setHeaderOpen] = usePersistentState(`vtt-${scope}-header-open`, true);
   const [footerOpen, setFooterOpen] = usePersistentState(`vtt-${scope}-footer-open`, true);
@@ -56,11 +54,11 @@ function GameLayout() {
   const [showHistory, setShowHistory] = usePersistentState(`vtt-${scope}-show-history`, false);
   const [theme] = usePersistentState('vtt-theme', 'dark');
   
-  // SYNC
+  // SYNC (Ahora recibe isSessionActive)
   const { 
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, // <--- Recibimos jugadores
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers,
     emitLog, emitBackground, emitHandout, removeHandout 
-  } = useRoomSync(slug, userProfile);
+  } = useRoomSync(slug, userProfile, isSessionActive);
   
   const [activeModal, setActiveModal] = useState(null); 
   const [diceReady, setDiceReady] = useState(false);
@@ -81,24 +79,17 @@ function GameLayout() {
 
   useEffect(() => { if (diceReady) try { DiceManager.updateTheme(theme); } catch(e){} }, [theme, diceReady]);
 
-  // --- FIX DOBLE ROLL ---
+  // Sync 3D
   const lastProcessedLogId = useRef(0);
-
   useEffect(() => {
     if (remoteLogs.length > 0) {
       const latestLog = remoteLogs[0];
-      
       if (latestLog.id > lastProcessedLogId.current) {
         const isFresh = (Date.now() - latestLog.id) < 5000;
-        
-        // AQUÍ ESTÁ EL TRUCO:
-        // Si el log tiene MI sessionId, NO lo ruedo (porque ya lo rodé localmente)
         const isMyRoll = latestLog.sessionId === mySessionId.current;
 
         if (isFresh && !isMyRoll) {
-          const rollConfig = latestLog.results.map(r => ({
-             sides: parseInt(r.sides), qty: 1, themeColor: r.color
-          }));
+          const rollConfig = latestLog.results.map(r => ({ sides: parseInt(r.sides), qty: 1, themeColor: r.color }));
           DiceManager.roll(rollConfig);
         }
         lastProcessedLogId.current = latestLog.id;
@@ -106,72 +97,68 @@ function GameLayout() {
     }
   }, [remoteLogs]);
 
-  // --- MANEJADOR DE ROLL ---
   const handleConsoleRoll = async (rollConfig, modifier = 0) => {
-    // 1. Rodamos local (inmediato)
     const results = await DiceManager.roll(rollConfig);
-    
     if (results.length > 0) {
       const naturalTotal = results.reduce((acc, r) => acc + r.value, 0);
       const modVal = parseInt(modifier) || 0;
       
       const newLog = {
         id: Date.now(),
-        sessionId: mySessionId.current, // <--- ENVIAMOS NUESTRA FIRMA
+        sessionId: mySessionId.current,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         modifier: modVal,
         total: naturalTotal + modVal,
         results: results.map(r => ({ value: r.value, sides: r.sides, color: r.themeColor }))
       };
-      
       if (slug) emitLog(newLog);
       setShowHistory(true);
     }
   };
 
-  // Configuración Sala
+  // Configuración de Sala al entrar
   useEffect(() => {
     if (slug) {
       const title = location.state?.roomTitle || slug.split('-')[0].toUpperCase();
       const code = location.state?.roomCode || slug.split('-').pop();
-      const isGM = location.state?.isGM || false;
-      
-      // Si entramos como DJ y el perfil actual no tiene ese dato, podríamos actualizarlo aquí
-      // Pero IdentityModal ya maneja la creación.
-      
+      const isGM = location.state?.isGM || false; // ¿Vengo de crearla?
       setRoomData({ title, code, slug, isGM });
+      
+      // Al cambiar de sala (o entrar de nuevas), reseteamos la sesión para obligar a confirmar
+      setIsSessionActive(false); 
     } else {
       setRoomData(null);
     }
   }, [slug, location.state]);
 
   const handleResourceSubmit = (data) => {
-    if (activeModal === 'background') {
-      if (slug) emitBackground(data.src);
-    } else if (activeModal === 'handout') {
-      const newHandout = { id: Date.now(), ...data };
-      if (slug) emitHandout(newHandout);
-    }
+    if (activeModal === 'background') { if (slug) emitBackground(data.src); } 
+    else if (activeModal === 'handout') { const newHandout = { id: Date.now(), ...data }; if (slug) emitHandout(newHandout); }
     setActiveModal(null);
   };
 
-  // --- RENDERIZADO ---
+  // --- FLUJO DE RENDERIZADO ---
+
+  // 1. Lobby
   if (!slug) return (<> {remoteBg && <div className="absolute inset-0 z-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${remoteBg})` }} />} <LobbyModal /> </>);
 
-  // Pasamos el isGM de la sala al IdentityModal para que sepa si eres DJ
-  if (!userProfile) {
+  // 2. ¿Sesión no iniciada? -> MODAL DE IDENTIDAD (Siempre, aunque haya userProfile)
+  if (!isSessionActive) {
     return (
       <IdentityModal 
+        existingProfile={userProfile}
+        isGMRequired={roomData?.isGM} // Pasamos si la sala requiere DJ
         onComplete={(profile) => {
-           // Si la sala dice que soy DJ, forzamos esa propiedad en el perfil
-           const finalProfile = { ...profile, isGM: roomData?.isGM || profile.isGM };
-           setUserProfile(finalProfile);
+           // Actualizamos perfil persistente
+           setUserProfile(profile);
+           // ACTIVAMOS LA SESIÓN -> Esto activará useRoomSync
+           setIsSessionActive(true);
         }} 
-        existingProfile={userProfile} 
       />
     );
   }
 
+  // 3. Juego
   return (
     <>
       {remoteBg && (
@@ -180,18 +167,11 @@ function GameLayout() {
         </div>
       )}
 
-      {/* HEADER ACTUALIZADO */}
       <Header 
-        isOpen={headerOpen} 
-        setIsOpen={setHeaderOpen} 
+        isOpen={headerOpen} setIsOpen={setHeaderOpen} 
         onOpenBackgroundModal={() => setActiveModal('background')}
-        roomData={roomData} 
-        userProfile={userProfile}
-        connectedPlayers={connectedPlayers} // <--- NUEVA PROP
-        onExit={() => { // <--- FUNCIÓN SALIR
-          navigate('/');
-          window.location.reload(); // Limpieza dura para asegurar lobby fresco
-        }}
+        roomData={roomData} userProfile={userProfile} connectedPlayers={connectedPlayers} 
+        onExit={() => { navigate('/'); window.location.reload(); }}
       />
       
       {!headerOpen && (
@@ -200,28 +180,18 @@ function GameLayout() {
         </button>
       )}
 
-      {/* BOTONERA LATERAL */}
       <div className="absolute top-28 right-6 z-20 flex flex-col gap-3">
         <button onClick={() => DiceManager.clear()} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-red-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><Eraser size={20} /></button>
         {remoteBg && <button onClick={() => emitBackground(null)} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-orange-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><ImageOff size={20} /></button>}
-        {/* 3. RESET UI (INTELIGENTE) */}
+        
+        {/* RESET UI INTELIGENTE */}
         <button 
           onClick={() => { 
-            // Lista de cosas que NO queremos borrar
             const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
-            
-            // Recorremos la memoria y borramos todo lo que no esté en la lista blanca
-            Object.keys(localStorage).forEach(key => {
-              if (!keysToKeep.includes(key)) {
-                localStorage.removeItem(key);
-              }
-            });
-            
-            // Recargamos para aplicar cambios
+            Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
             window.location.reload(); 
           }} 
-          className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-blue-600 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl group" 
-          title="Recolocar Ventanas (Reset UI)"
+          className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-blue-600 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl group"
         >
           <RotateCcw size={20} className="group-active:-rotate-180 transition-transform duration-500" />
         </button>

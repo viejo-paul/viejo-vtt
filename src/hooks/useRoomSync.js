@@ -2,22 +2,22 @@ import { useEffect, useState } from 'react';
 import { database } from '../firebase';
 import { ref, onValue, push, set, remove, onDisconnect } from 'firebase/database';
 
-export function useRoomSync(slug, userProfile) {
+export function useRoomSync(slug, userProfile, isSessionActive) { // <--- Nuevo param isSessionActive
   const [remoteLogs, setRemoteLogs] = useState([]);
   const [remoteBg, setRemoteBg] = useState(null);
   const [remoteHandouts, setRemoteHandouts] = useState([]);
-  const [connectedPlayers, setConnectedPlayers] = useState([]); // <--- NUEVO
+  const [connectedPlayers, setConnectedPlayers] = useState([]);
 
   // Referencias
   const roomRef = ref(database, `rooms/${slug}`);
   const logsRef = ref(database, `rooms/${slug}/logs`);
   const bgRef = ref(database, `rooms/${slug}/background`);
   const handoutsRef = ref(database, `rooms/${slug}/handouts`);
-  const playersRef = ref(database, `rooms/${slug}/players`); // <--- NUEVO
+  const playersRef = ref(database, `rooms/${slug}/players`);
 
-  // 1. ESCUCHAR CAMBIOS GENERALES
+  // 1. ESCUCHAR CAMBIOS (Solo si hay slug y la sesión está activa)
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || !userProfile || !isSessionActive) return; // <--- EL GUARDIÁN
 
     const unsubscribeLogs = onValue(logsRef, (snapshot) => {
       const data = snapshot.val();
@@ -31,7 +31,6 @@ export function useRoomSync(slug, userProfile) {
       setRemoteHandouts(data ? Object.values(data) : []);
     });
 
-    // ESCUCHAR JUGADORES CONECTADOS
     const unsubscribePlayers = onValue(playersRef, (snapshot) => {
       const data = snapshot.val();
       setConnectedPlayers(data ? Object.values(data) : []);
@@ -43,42 +42,40 @@ export function useRoomSync(slug, userProfile) {
       unsubscribeHandouts();
       unsubscribePlayers();
     };
-  }, [slug]);
+  }, [slug, isSessionActive]); // userProfile quitado de deps para evitar reconexión si cambia algo interno irrelevante, pero vigilado arriba
 
-  // 2. GESTIÓN DE PRESENCIA (MI USUARIO)
+  // 2. GESTIÓN DE PRESENCIA
   useEffect(() => {
-    if (!slug || !userProfile) return;
+    if (!slug || !userProfile || !isSessionActive) return;
 
-    // Creamos una referencia única para mi conexión actual
-    // Usamos userProfile.name + un random para evitar conflictos si abres 2 pestañas
-    const mySessionId = `${userProfile.name}-${Math.floor(Math.random() * 10000)}`;
+    // Crear ID de sesión único para esta pestaña
+    const mySessionId = `${userProfile.name}-${Math.floor(Math.random() * 100000)}`;
     const myUserRef = ref(database, `rooms/${slug}/players/${mySessionId}`);
 
-    // Escribimos mis datos
     set(myUserRef, { 
       name: userProfile.name, 
       color: userProfile.color,
       isGM: userProfile.isGM || false 
     });
 
-    // PROGRAMAMOS LA AUTODESTRUCCIÓN si me desconecto
     onDisconnect(myUserRef).remove();
 
-    // Limpieza al desmontar (cambiar de sala o cerrar componente)
     return () => {
       remove(myUserRef);
     };
-  }, [slug, userProfile]); // Se ejecuta si cambia la sala o el perfil
+  }, [slug, isSessionActive]); // <--- Solo conecta cuando el usuario da al botón "Entrar"
 
   // 3. EMITTERS
   const emitLog = (logData) => {
+    if (!isSessionActive) return;
     const newLogRef = push(logsRef);
     set(newLogRef, { ...logData, user: userProfile });
   };
 
-  const emitBackground = (data) => set(bgRef, data);
+  const emitBackground = (data) => { if(isSessionActive) set(bgRef, data); };
   
   const emitHandout = (handoutData) => {
+    if(!isSessionActive) return;
     const specificHandoutRef = ref(database, `rooms/${slug}/handouts/${handoutData.id}`);
     set(specificHandoutRef, handoutData);
   };
@@ -88,13 +85,7 @@ export function useRoomSync(slug, userProfile) {
   };
 
   return {
-    remoteLogs,
-    remoteBg,
-    remoteHandouts,
-    connectedPlayers, // <--- EXPORTAMOS LA LISTA
-    emitLog,
-    emitBackground,
-    emitHandout,
-    removeHandout
+    remoteLogs, remoteBg, remoteHandouts, connectedPlayers,
+    emitLog, emitBackground, emitHandout, removeHandout
   };
 }
