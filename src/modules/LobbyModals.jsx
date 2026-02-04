@@ -196,7 +196,8 @@ function RecentRooms() {
       <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest mb-3">Recientes</p>
       <div className="flex flex-wrap justify-center gap-2">
         {recents.slice(0, 3).map((r, i) => (
-          <a key={i} href={`#/room/${r.slug}`} className="px-3 py-1.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-white/10 rounded-lg text-xs font-bold text-neutral-600 dark:text-neutral-300 hover:border-emerald-500 transition-colors truncate max-w-[120px]">
+          <a key={i} href={`#/room/${r.slug}`} className="px-3 py-1.5 bg-white ... truncate max-w-[200px] md:max-w-none"> 
+            {/* Aumenta max-w o quítalo en pantallas grandes */}
             {r.title}
           </a>
         ))}

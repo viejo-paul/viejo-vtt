@@ -95,6 +95,20 @@ export function IdentityModal({ onComplete, existingProfile, isGMRequired }) {
               </div>
             </div>
 
+            <div className="flex items-center gap-2 py-2">
+               <input 
+                 type="checkbox" 
+                 id="gm-claim" 
+                 checked={isGMRequired} // O un estado local si quieres permitir cambiarlo
+                 onChange={(e) => { 
+                    // Esto es un hack rápido: si marcas el check, actuamos como si la sala lo requiriera
+                    // Idealmente deberías tener un setIsGM local
+                 }}
+                 className="accent-emerald-500 w-4 h-4"
+               />
+               <label htmlFor="gm-claim" className="text-xs text-neutral-500">Entrar como Director de Juego</label>
+            </div>
+
             <button type="submit" className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg mt-2 active:scale-95 transition-transform">
               ENTRAR A LA SALA
             </button>
