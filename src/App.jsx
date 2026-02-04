@@ -125,18 +125,23 @@ function GameLayout() {
       const code = location.state?.roomCode || slug.split('-').pop();
       const isGM = location.state?.isGM || false;
       
+      // 1. Calculamos qué título mostrar en pantalla
+      const displayTitle = remoteMetadata?.title || navTitle || slug.split('-')[0].toUpperCase();
+
       setRoomData({ 
-        // PRIORIDAD: 1. Título de la nube (remoteMetadata), 2. Título de navegación, 3. Fallback del slug
-        title: remoteMetadata?.title || navTitle || slug.split('-')[0].toUpperCase(), 
+        title: displayTitle, 
         code, 
         slug, 
         isGM 
       });
 
-      // SI SOMOS EL DJ Y TENEMOS UN TÍTULO FRESCO DE NAVEGACIÓN, LO GUARDAMOS EN LA NUBE
-      // (Solo lo hacemos si la sesión está activa para asegurar que emitMetadata funciona)
+      // 2. LÓGICA DE GUARDADO 
+      // Solo guardamos en la nube si: // A) Somos el GM // B) Tenemos un título nuevo que guardar (navTitle)
+      // C) La sesión está activa // D) Y LO MÁS IMPORTANTE: El dato en la nube es diferente o no existe.
       if (isGM && navTitle && isSessionActive) {
-        emitMetadata({ title: navTitle, createdAt: Date.now() });
+        if (!remoteMetadata || remoteMetadata.title !== navTitle) {
+             emitMetadata({ title: navTitle, code: code, createdAt: Date.now() });
+        }
       }
 
     } else {
