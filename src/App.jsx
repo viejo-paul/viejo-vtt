@@ -227,9 +227,14 @@ function GameLayout() {
         />
       )}
 
-      {/* MÚSICA (Esto es lo que faltaba en tu App.jsx para que el botón funcionara) */}
-      <div className={showMusicPlayer ? 'block' : 'hidden'}>
-        <MusicPlayer audioState={remoteAudio} isGM={roomData?.isGM} onSyncAudio={emitAudio} onClose={() => setShowMusicPlayer(false)} />
+      {/* MÚSICA: Siempre montado para evitar cortes y errores de Play/Pause */}
+      <div className={showMusicPlayer ? 'contents' : 'hidden'}>
+        <MusicPlayer 
+          audioState={remoteAudio} 
+          isGM={roomData?.isGM} 
+          onSyncAudio={emitAudio} 
+          onClose={() => setShowMusicPlayer(false)} 
+        />
       </div>
 
       <ResourceModal 

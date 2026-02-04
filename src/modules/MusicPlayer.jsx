@@ -99,16 +99,27 @@ function MusicPlayer({ audioState, isGM, onSyncAudio, onClose }) {
         </div>
       </div>
 
-      {/* REPRODUCTOR OCULTO (El motor que hace sonar la música) */}
-      <div className="hidden">
+      {/* REPRODUCTOR INVISIBLE (Pero renderizado para evitar AbortError) */}
+      <div className="absolute top-0 left-0 w-px h-px opacity-0 pointer-events-none overflow-hidden">
         <ReactPlayer
           url={currentUrl}
           playing={isPlaying}
           volume={localVolume}
-          loop={true} // Bucle activado por defecto para ambiente
-          width="0"
-          height="0"
+          loop={true}
+          width="100%" 
+          height="100%"
           controls={false}
+          config={{
+            youtube: {
+              playerVars: { 
+                autoplay: 0, 
+                modestbranding: 1, 
+                controls: 0, 
+                disablekb: 1, 
+                playsinline: 1 
+              }
+            }
+          }}
           onError={(e) => console.log("Error de audio:", e)}
         />
       </div>
