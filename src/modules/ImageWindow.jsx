@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Minus } from 'lucide-react';
 import { useWindowPosition } from '../hooks/useWindowPosition';
 
-function ImageWindow({ id, data, onClose }) {
+function ImageWindow({ id, data, onClose, storageKey }) {
   // Generamos una posición aleatoria inicial para que no se amontonen si abres muchas
   const randomOffset = Math.floor(Math.random() * 50);
   const initialPos = { x: (window.innerWidth / 2) - 150 + randomOffset, y: (window.innerHeight / 2) - 200 + randomOffset };

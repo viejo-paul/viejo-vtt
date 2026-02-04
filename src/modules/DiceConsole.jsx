@@ -3,7 +3,7 @@ import { Dices, X, Minus, Plus, Trash2, Pipette } from 'lucide-react';
 import { usePersistentState } from '../hooks/usePersistentState'; // Solo para cosas que queremos guardar sí o sí
 import { useWindowPosition } from '../hooks/useWindowPosition';
 
-function DiceConsole({ onClose, onRoll }) {
+function DiceConsole({ onClose, onRoll, storageKey }) {
   const [position, setPosition, keepInBounds] = useWindowPosition('vtt-console-pos', { x: 50, y: 150 }, { w: 288, h: 400 });
   
   // ESTADOS VOLÁTILES (Usamos useState normal para que no se "enganchen")

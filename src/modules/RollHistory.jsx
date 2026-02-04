@@ -25,7 +25,7 @@ const DieShape = ({ sides, color, value }) => {
   );
 };
 
-function RollHistory({ logs, onClose, onClear }) {
+function RollHistory({ logs, onClose, onClear, storageKey }) {
   const [size, setSize] = usePersistentState('vtt-history-size', { w: 320, h: 450 });
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
   const initialPos = isMobile ? { x: 10, y: 80 } : { x: 400, y: 50 };
