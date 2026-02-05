@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { X, Plus, Search, Folder, Image as ImageIcon, FileText, Lock, Eye, Trash2, Save, MoreVertical, Layout, GripHorizontal } from 'lucide-react';
-import { useWindowPosition } from '../hooks/useWindowPosition'; // Importamos el hook de posición
+import { X, Plus, Search, Folder, Image as ImageIcon, FileText, Lock, Eye, Trash2, Save, MoreVertical, Layout, GripHorizontal, Upload } from 'lucide-react'; // Añadido Upload
+import { useWindowPosition } from '../hooks/useWindowPosition';
 
 function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource, onUpdateResource, onDeleteResource, onOpenResource, onClose }) {
   const [view, setView] = useState('list');
@@ -10,15 +10,12 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
   const [searchTerm, setSearchTerm] = useState('');
   
   // --- LOGICA DE POSICIÓN Y ARRASTRE ---
-  // Posición inicial un poco centrada pero desplazada para que se vea que flota
   const [position, setPosition] = useWindowPosition('vtt-library-pos', { x: 80, y: 60 });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const handleStart = (e) => {
-    // Evitamos arrastrar si pulsamos en botones, inputs o el sidebar
     if (e.target.closest('button') || e.target.closest('input') || e.target.closest('.no-drag')) return;
-    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setIsDragging(true);
@@ -28,12 +25,11 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
   useEffect(() => {
     const handleMove = (e) => {
       if (!isDragging) return;
-      e.preventDefault(); // Evitar scroll en móviles mientras arrastras
+      e.preventDefault();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       setPosition({ x: clientX - dragOffset.current.x, y: clientY - dragOffset.current.y });
     };
-
     const handleEnd = () => setIsDragging(false);
 
     if (isDragging) {
@@ -51,7 +47,7 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
   }, [isDragging, setPosition]);
 
 
-  // Estado del Editor
+  // --- ESTADO DEL EDITOR Y SUBIDA ---
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     type: 'text',
@@ -61,6 +57,34 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
     visibility: 'visible',
     attachment: ''
   });
+
+  // Referencias para la subida de archivos
+  const fileInputRef = useRef(null);
+  const [uploadTarget, setUploadTarget] = useState(null); // 'content' (imagen principal) o 'attachment' (cabecera nota)
+
+  const handleTriggerUpload = (target) => {
+    setUploadTarget(target);
+    fileInputRef.current.click();
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validación de seguridad básica (1MB) para no saturar la base de datos realtime
+    if (file.size > 1024 * 1024) {
+      alert("⚠️ La imagen es demasiado grande (>1MB). Por favor, redúcela antes de subirla o usa una URL externa.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target.result;
+      setFormData(prev => ({ ...prev, [uploadTarget]: base64 }));
+    };
+    reader.readAsDataURL(file);
+  };
+
 
   // 1. GESTIÓN DE CARPETAS
   const folders = useMemo(() => {
@@ -140,20 +164,25 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
     ],
   };
 
-  // ESTILOS DE LA VENTANA
-  // Eliminamos "fixed inset-0 bg-black/60" para quitar el modal bloqueante
-  // Añadimos style={{ left, top }} y width fijo
   return (
     <div 
       style={{ left: position.x, top: position.y }}
       className="fixed z-[90] w-[95vw] md:w-[900px] h-[80vh] bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-neutral-200 dark:border-white/10 animate-in fade-in zoom-in duration-200"
     >
       
+        {/* Input de archivo oculto global */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/*" 
+          onChange={handleFileSelect} 
+        />
+
         {/* === SIDEBAR + AREA PRINCIPAL === */}
         <div className="flex flex-1 overflow-hidden">
             
             {/* SIDEBAR (CARPETAS) */}
-            {/* Añadimos clase 'no-drag' para que si clicas aquí no se mueva la ventana entera */}
             <div className="w-64 bg-neutral-100 dark:bg-black/40 border-r border-neutral-200 dark:border-white/10 flex flex-col hidden md:flex no-drag">
                 <div 
                   onMouseDown={handleStart} onTouchStart={handleStart}
@@ -183,17 +212,14 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
             {/* ÁREA DERECHA */}
             <div className="flex-1 flex flex-col bg-white dark:bg-neutral-900">
             
-                {/* HEADER PRINCIPAL (ZONA DE ARRASTRE) */}
+                {/* HEADER PRINCIPAL */}
                 <div 
                     onMouseDown={handleStart} onTouchStart={handleStart}
                     className="h-16 border-b border-neutral-200 dark:border-white/10 flex items-center justify-between px-4 cursor-move select-none hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors"
                 >
                     <div className="flex items-center gap-3 flex-1">
                         <button className="md:hidden no-drag" onClick={() => {/* Toggle Sidebar Mobile */}}><Folder/></button>
-                        
-                        {/* Icono de agarre visual */}
                         <GripHorizontal className="text-neutral-300 dark:text-neutral-600 mr-2" />
-                        
                         <h3 className="font-bold text-lg dark:text-white pointer-events-none">
                             {view === 'list' ? selectedFolder : (editingId ? 'Editar Recurso' : 'Nuevo Recurso')}
                         </h3>
@@ -229,15 +255,11 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
                 </div>
 
                 {/* CONTENIDO (LISTA O EDITOR) */}
-                {/* Nota: Usamos 'no-drag' o simplemente dejamos que el evento onMouseDown no se propague desde los hijos si fuera necesario, pero como handleStart filtra por inputs/buttons, suele funcionar bien */}
-                
-                {/* === VISTA: LISTA === */}
                 {view === 'list' && (
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar cursor-default">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredItems.map(item => (
                         <div key={item.id} className="group relative bg-white dark:bg-white/5 border border-neutral-200 dark:border-white/10 rounded-xl p-4 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm hover:shadow-md flex flex-col">
-                            {/* ... Contenido de la tarjeta ... */}
                             <div className="flex justify-between items-start mb-2">
                                 <span className={`p-1.5 rounded-md ${item.type === 'image' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400'}`}>
                                     {item.type === 'image' ? <ImageIcon size={16}/> : <FileText size={16}/>}
@@ -265,11 +287,11 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
                     </div>
                 )}
 
-                {/* === VISTA: EDITOR === */}
                 {view === 'editor' && (
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-neutral-50 dark:bg-black/20 cursor-default">
-                        {/* El formulario es igual que antes, solo asegúrate de importar ReactQuill de 'react-quill-new' */}
                         <form onSubmit={handleSave} className="max-w-3xl mx-auto space-y-6">
+                            
+                            {/* TÍTULO Y CARPETA */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Título</label>
@@ -281,6 +303,8 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
                                     <datalist id="folder-suggestions">{folders.map(f => <option key={f} value={f} />)}</datalist>
                                 </div>
                             </div>
+
+                            {/* TIPO Y VISIBILIDAD */}
                             <div className="flex gap-4 p-4 bg-white dark:bg-white/5 rounded-xl border border-neutral-200 dark:border-white/10">
                                 <div className="flex-1">
                                     <label className="block text-xs font-bold text-neutral-500 uppercase mb-2">Tipo</label>
@@ -297,22 +321,46 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
                                     </div>
                                 </div>
                             </div>
+
+                            {/* CONTENIDO SEGÚN TIPO */}
                             {formData.type === 'image' ? (
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">URL Imagen</label>
-                                    <input type="text" value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="w-full p-2 bg-white dark:bg-black/40 border border-neutral-300 dark:border-white/20 rounded-lg outline-none dark:text-white font-mono text-sm" />
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Imagen (URL o Subir Archivo)</label>
+                                    <div className="flex gap-2">
+                                      <input type="text" value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} placeholder="https://..." className="flex-1 p-2 bg-white dark:bg-black/40 border border-neutral-300 dark:border-white/20 rounded-lg outline-none dark:text-white font-mono text-sm" />
+                                      <button type="button" onClick={() => handleTriggerUpload('content')} className="px-3 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 rounded-lg transition-colors" title="Subir imagen desde PC">
+                                        <Upload size={18} className="text-neutral-700 dark:text-neutral-300"/>
+                                      </button>
+                                    </div>
+                                    {formData.content && (
+                                      <div className="mt-4 border-2 border-dashed border-neutral-300 dark:border-white/10 rounded-xl p-4 flex justify-center bg-black/50">
+                                        <img src={formData.content} alt="Preview" className="max-h-64 object-contain shadow-lg" />
+                                      </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Imagen Cabecera</label>
-                                        <input type="text" value={formData.attachment} onChange={e => setFormData({...formData, attachment: e.target.value})} className="w-full p-2 bg-white dark:bg-black/40 border border-neutral-300 dark:border-white/20 rounded-lg outline-none dark:text-white text-sm" />
+                                        <label className="block text-xs font-bold text-neutral-500 uppercase mb-1">Imagen Cabecera (Opcional)</label>
+                                        <div className="flex gap-2">
+                                          <input type="text" value={formData.attachment} onChange={e => setFormData({...formData, attachment: e.target.value})} placeholder="URL..." className="flex-1 p-2 bg-white dark:bg-black/40 border border-neutral-300 dark:border-white/20 rounded-lg outline-none dark:text-white text-sm" />
+                                          <button type="button" onClick={() => handleTriggerUpload('attachment')} className="px-3 bg-neutral-200 dark:bg-white/10 hover:bg-neutral-300 dark:hover:bg-white/20 rounded-lg transition-colors" title="Subir imagen desde PC">
+                                            <Upload size={18} className="text-neutral-700 dark:text-neutral-300"/>
+                                          </button>
+                                        </div>
+                                        {formData.attachment && (
+                                           <div className="mt-2 h-20 w-full overflow-hidden rounded bg-black/50 relative">
+                                              <img src={formData.attachment} className="w-full h-full object-cover opacity-70" alt="header preview"/>
+                                           </div>
+                                        )}
                                     </div>
                                     <div className="bg-white dark:bg-neutral-800 rounded-lg overflow-hidden border border-neutral-300 dark:border-white/20 text-neutral-900 dark:text-white">
                                         <ReactQuill theme="snow" value={formData.content} onChange={value => setFormData({...formData, content: value})} modules={quillModules} className="h-64 mb-12" />
                                     </div>
                                 </div>
                             )}
+
+                            {/* BOTONERA INFERIOR */}
                             <div className="flex gap-4 pt-4 border-t border-neutral-200 dark:border-white/10">
                                 {editingId && <button type="button" onClick={handleDelete} className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold flex items-center gap-2"><Trash2 size={18} /> Borrar</button>}
                                 <div className="flex-1"></div>
