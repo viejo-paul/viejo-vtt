@@ -242,7 +242,7 @@ function GameLayout() {
         onClose={() => setActiveModal(null)} 
         onSubmit={handleResourceSubmit} 
         onClear={activeModal === 'background' && remoteBg ? handleClearBackground : null}
-        title={activeModal === 'background' ? "Configurar Tablero" : "Nueva Ayuda"} 
+        title={activeModal === 'background' ? "Configurar Tablero" : "Nueva imagen"} 
         showTitleInput={activeModal === 'handout'} 
       />
 

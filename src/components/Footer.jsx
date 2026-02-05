@@ -17,19 +17,19 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
           <div className="w-8"></div> 
 
           <div className="flex gap-2 sm:gap-4 overflow-x-auto no-scrollbar py-2">
-            {/* 1. TIRADOR (Antes "Dados") */}
+            {/* 1. TIRADOR */}
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
             
-            {/* 2. HANDOUT (Antes "Imagen") */}
-            <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Handout" colorClass="bg-pink-600" borderClass="border-pink-500" />
+            {/* 2. IMAGEN (Antes "Handout") */}
+            <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Imagen" colorClass="bg-pink-600" borderClass="border-pink-500" />
             
-            {/* 3. MÚSICA (Nuevo) */}
-            <FooterButton active={false} onClick={onOpenMusic} icon={Music} label="Música" colorClass="bg-violet-600" borderClass="border-violet-500" />
+            {/* 3. MÚSICA (Oculto por ahora) */}
+            {/*<FooterButton active={false} onClick={onOpenMusic} icon={Music} label="Música" colorClass="bg-violet-600" borderClass="border-violet-500" />*/}
             
-            {/* 4. NOTAS (Nuevo) */}
+            {/* 4. NOTAS  */}
             <FooterButton active={false} onClick={onOpenNotes} icon={StickyNote} label="Notas" colorClass="bg-yellow-500" borderClass="border-yellow-600" />
             
-            {/* 5. HISTORIAL (Antes "Log") */}
+            {/* 5. HISTORIAL */}
             <FooterButton active={isHistoryOpen} onClick={onToggleHistory} icon={ScrollText} label="Historial" colorClass="bg-indigo-600" borderClass="border-indigo-500" />
           </div>
 
