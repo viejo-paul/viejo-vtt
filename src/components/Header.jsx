@@ -1,8 +1,8 @@
-import { Sun, Moon, Map, ChevronDown, Copy, Check, LogOut, User } from 'lucide-react';
+import { Sun, Moon, Map, ChevronDown, Copy, Check, LogOut, RotateCcw, User } from 'lucide-react';
 import { usePersistentState } from '../hooks/usePersistentState';
 import { useEffect, useState } from 'react';
 
-function Header({ isOpen, setIsOpen, onOpenBackgroundModal, roomData, userProfile, connectedPlayers, onExit }) {
+function Header({ isOpen, setIsOpen, onOpenBackgroundModal, roomData, userProfile, connectedPlayers, onExit, onResetUI }) {
   const [theme, setTheme] = usePersistentState('vtt-theme', 'dark');
   const [copied, setCopied] = useState(false);
 
@@ -71,6 +71,15 @@ function Header({ isOpen, setIsOpen, onOpenBackgroundModal, roomData, userProfil
             <button onClick={toggleTheme} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-neutral-200 dark:hover:bg-white/10 text-neutral-600 dark:text-yellow-400 transition-all active:scale-95">{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button>
             
             <div className="w-px h-6 bg-neutral-300 dark:bg-white/10 mx-1"></div>
+            
+            {/* BOTÓN Resetar UI */}
+            <button 
+              onClick={onResetUI}
+              className="p-2 text-neutral-400 hover:text-blue-500 transition-colors"
+              title="Resetear Interfaz"
+            >
+              <RotateCcw size={20} />
+            </button>
 
             {/* BOTÓN SALIR */}
             <button onClick={onExit} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-500 transition-all active:scale-95" title="Salir de la Sala">

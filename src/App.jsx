@@ -176,6 +176,11 @@ function GameLayout() {
         isOpen={headerOpen} setIsOpen={setHeaderOpen} 
         roomData={roomData} userProfile={userProfile} connectedPlayers={connectedPlayers} 
         onExit={() => { navigate('/'); window.location.reload(); }}
+        onResetUI={() => {
+        const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
+        Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
+        window.location.reload();
+  }}
       />
       
       {!headerOpen && (
@@ -186,17 +191,9 @@ function GameLayout() {
 
       {/* Botonera Derecha */}
       <div className="absolute top-28 right-6 z-20 flex flex-col gap-3">
-        <button onClick={() => DiceManager.clear()} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-red-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><Eraser size={20} /></button>
-        <button onClick={() => { 
-            const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
-            Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
-            window.location.reload(); 
-          }} 
-          className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-blue-600 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl group"
-        >
-          <RotateCcw size={20} className="group-active:-rotate-180 transition-transform duration-500" />
-        </button>
+        
       </div>
+      {/* Antigua Botonera Derecha */}
 
       {showConsole && <DiceConsole onClose={() => setShowConsole(false)} onRoll={handleConsoleRoll} />}
       {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={removeLogs} />}
