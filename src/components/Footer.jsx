@@ -1,10 +1,17 @@
-import { ChevronDown, ChevronUp, Dices, ScrollText, Image as ImageIcon, StickyNote, Music } from 'lucide-react';
+import { ChevronDown, ChevronUp, Dices, ScrollText, Library, Music } from 'lucide-react';
 
-function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenImageModal, onOpenNotes, onOpenMusic }) {
+function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHistory, isHistoryOpen, onOpenLibrary, onOpenMusic }) {
   
   const FooterButton = ({ active, onClick, icon: Icon, label, colorClass, borderClass }) => (
-    <button onClick={(e) => { e.preventDefault(); if(onClick) onClick(); }} className="group h-10 flex items-center outline-none">
-      <div className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border pointer-events-none ${active ? `${colorClass} text-white shadow-lg ${borderClass}` : 'bg-black/5 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 border-transparent hover:bg-black/10 dark:hover:bg-white/10'}`}>
+    <button 
+      onClick={(e) => { 
+        e.preventDefault(); 
+        e.stopPropagation(); 
+        if(onClick) onClick(); 
+      }} 
+      className="group h-10 flex items-center outline-none"
+    >
+      <div className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 border cursor-pointer select-none ${active ? `${colorClass} text-white shadow-lg ${borderClass}` : 'bg-black/5 dark:bg-white/5 text-neutral-500 dark:text-neutral-400 border-transparent hover:bg-black/10 dark:hover:bg-white/10'}`}>
         <Icon size={18} /> <span className="text-[10px] font-bold uppercase hidden sm:inline">{label}</span>
       </div>
     </button>
@@ -16,20 +23,17 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
         <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md border-t border-black/10 dark:border-white/10 h-16 px-4 flex justify-between items-center gap-2 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
           <div className="w-8"></div> 
 
-          <div className="flex gap-2 sm:gap-4 overflow-x-auto no-scrollbar py-2">
-            {/* 1. TIRADOR */}
+          <div className="flex gap-2 sm:gap-4">
+            {/* 1. TIRADOR DE DADOS */}
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
             
-            {/* 2. IMAGEN (Antes "Handout") */}
-            <FooterButton active={false} onClick={onOpenImageModal} icon={ImageIcon} label="Imagen" colorClass="bg-pink-600" borderClass="border-pink-500" />
+            {/* 2. BIBLIOTECA (Unifica Notas y Handouts) */}
+            <FooterButton active={false} onClick={onOpenLibrary} icon={Library} label="Biblioteca" colorClass="bg-amber-600" borderClass="border-amber-500" />
             
-            {/* 3. MÚSICA (Oculto por ahora) */}
-            {/*<FooterButton active={false} onClick={onOpenMusic} icon={Music} label="Música" colorClass="bg-violet-600" borderClass="border-violet-500" />*/}
+            {/* 3. MÚSICA (Oculta por ahora) */}
+            {/* <FooterButton active={false} onClick={onOpenMusic} icon={Music} label="Música" colorClass="bg-violet-600" borderClass="border-violet-500" /> */}
             
-            {/* 4. NOTAS  */}
-            <FooterButton active={false} onClick={onOpenNotes} icon={StickyNote} label="Notas" colorClass="bg-yellow-500" borderClass="border-yellow-600" />
-            
-            {/* 5. HISTORIAL */}
+            {/* 4. HISTORIAL */}
             <FooterButton active={isHistoryOpen} onClick={onToggleHistory} icon={ScrollText} label="Historial" colorClass="bg-indigo-600" borderClass="border-indigo-500" />
           </div>
 
@@ -39,9 +43,15 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
         </div>
       </footer>
 
-      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] transition-all duration-500 ${!isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-0 pointer-events-none'}`}>
-        <button onClick={() => setIsOpen(true)} className="bg-white dark:bg-black/80 p-3 rounded-full shadow-2xl border border-black/10 dark:border-white/10 text-emerald-600 dark:text-emerald-500 hover:scale-110 transition-transform"><ChevronUp size={24} /></button>
-      </div>
+      {/* Pestaña Abrir Footer (Círculo Pequeño) */}
+      {!isOpen && (
+        <button 
+          onClick={() => setIsOpen(true)} 
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] w-8 h-8 rounded-full bg-neutral-900/90 text-neutral-500 hover:text-white flex items-center justify-center backdrop-blur shadow-lg border border-white/10 transition-all hover:scale-110"
+        >
+          <ChevronUp size={16} />
+        </button>
+      )}
     </>
   );
 }

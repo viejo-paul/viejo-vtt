@@ -1,22 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useParams, useLocation, useNavigate, HashRouter } from 'react-router-dom';
-import { ChevronDown, Eraser, RotateCcw } from 'lucide-react';
+import { ChevronDown, Eraser } from 'lucide-react'; 
 import { useRoomSync } from './hooks/useRoomSync'; 
 
 import DiceConsole from './modules/DiceConsole';
 import RollHistory from './modules/RollHistory';
-import ImageWindow from './modules/ImageWindow';
 import ResourceModal from './components/ResourceModal';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import { LobbyModal } from './modules/LobbyModals';
 import { IdentityModal } from './modules/IdentityModal';
 import { usePersistentState } from './hooks/usePersistentState';
-import { DiceManager } from './engine/DiceManager'; 
-import BoardCanvas from './modules/BoardCanvas'; 
-import NotesManager from './modules/NotesManager';
-import NoteWindow from './modules/NoteWindow';
-import MusicPlayer from './modules/MusicPlayer'; // Asegúrate de tener este archivo creado
+import { DiceManager } from './engine/DiceManager';
+import BoardCanvas from './modules/BoardCanvas';
+import MusicPlayer from './modules/MusicPlayer';
+
+// --- NUEVOS MÓDULOS DE LIBRERÍA ---
+import LibraryManager from './modules/LibraryManager';
+import ResourceWindow from './modules/ResourceWindow';
 
 function App() {
   useEffect(() => {
@@ -54,23 +55,21 @@ function GameLayout() {
   const [showHistory, setShowHistory] = usePersistentState(`vtt-${scope}-show-history`, false);
   const [theme] = usePersistentState('vtt-theme', 'dark');
 
-  // SYNC COMPLETO
+  // --- SYNC ACTUALIZADO ---
   const { 
-    remoteLogs, remoteBg, remoteHandouts, connectedPlayers, remoteMetadata, remoteNotes, remoteAudio,
-    emitLog, emitBackground, emitHandout, removeHandout, emitMetadata, 
-    emitNote, removeNote, emitAudio, removeLogs 
+    remoteLogs, remoteBg, connectedPlayers, remoteMetadata, remoteAudio, 
+    remoteLibrary, emitResource, updateResource, deleteResource,
+    emitLog, emitBackground, emitMetadata, emitAudio 
   } = useRoomSync(slug, userProfile, isSessionActive);
 
   const [activeModal, setActiveModal] = useState(null); 
   const [diceReady, setDiceReady] = useState(false);
   const initialized = useRef(false);
+  
+  const [showLibrary, setShowLibrary] = useState(false); 
+  const [openResources, setOpenResources] = useState([]); 
+  const [showMusicPlayer, setShowMusicPlayer] = useState(false);
 
-  // Estados UI Nuevos
-  const [showNotesManager, setShowNotesManager] = useState(false);
-  const [openNotes, setOpenNotes] = useState([]);
-  const [showMusicPlayer, setShowMusicPlayer] = useState(false); // <--- ESTADO DE LA MÚSICA
-
-  // Inicialización 3D
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -85,7 +84,6 @@ function GameLayout() {
 
   useEffect(() => { if (diceReady) try { DiceManager.updateTheme(theme); } catch(e){} }, [theme, diceReady]);
 
-  // Sync 3D
   const lastProcessedLogId = useRef(0);
   useEffect(() => {
     if (remoteLogs.length > 0) {
@@ -120,20 +118,17 @@ function GameLayout() {
     }
   };
 
-  // Configuración Sala
   useEffect(() => {
     if (slug) {
       const navTitle = location.state?.roomTitle; 
       const code = location.state?.roomCode || slug.split('-').pop();
       const isGM = location.state?.isGM || false;
-      const displayTitle = remoteMetadata?.title || navTitle || slug.split('-')[0].toUpperCase();
-
-      setRoomData({ title: displayTitle, code, slug, isGM });
-
+      setRoomData({ 
+        title: remoteMetadata?.title || navTitle || slug.split('-')[0].toUpperCase(), 
+        code, slug, isGM 
+      });
       if (isGM && navTitle && isSessionActive) {
-        if (!remoteMetadata || remoteMetadata.title !== navTitle) {
-             emitMetadata({ title: navTitle, code: code, createdAt: Date.now() });
-        }
+        emitMetadata({ title: navTitle, createdAt: Date.now() });
       }
     } else {
       setRoomData(null);
@@ -141,14 +136,31 @@ function GameLayout() {
   }, [slug, location.state, remoteMetadata, isSessionActive]);
 
   const handleResourceSubmit = (data) => {
-    if (activeModal === 'background') { if (slug) emitBackground(data.src); } 
-    else if (activeModal === 'handout') { const newHandout = { id: Date.now(), ...data }; if (slug) emitHandout(newHandout); }
+    if (activeModal === 'background') { 
+      if (slug) emitBackground(data.src); 
+    } 
     setActiveModal(null);
   };
 
-  const handleClearBackground = () => { if (slug) emitBackground(null); setActiveModal(null); };
+  const handleResetUI = () => {
+    const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
+    Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
+    window.location.reload(); 
+  };
 
-  // --- RENDER ---
+  useEffect(() => {
+    if (!remoteLibrary) return;
+    remoteLibrary.forEach(resource => {
+      if (resource.visibility === 'popup') {
+        setOpenResources(prev => {
+          if (prev.find(r => r.id === resource.id)) return prev; 
+          return [...prev, resource];
+        });
+      }
+    });
+  }, [remoteLibrary]);
+
+
   if (!slug) return (<> {remoteBg && <div className="absolute inset-0 z-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${remoteBg})` }} />} <LobbyModal /> </>);
 
   if (!isSessionActive) {
@@ -156,101 +168,79 @@ function GameLayout() {
       <IdentityModal 
         existingProfile={userProfile}
         isGMRequired={roomData?.isGM} 
-        onComplete={(profile) => {
-           setUserProfile(profile);
-           setIsSessionActive(true);
-        }} 
+        onComplete={(profile) => { setUserProfile(profile); setIsSessionActive(true); }} 
       />
     );
   }
 
   return (
     <>
-      <BoardCanvas 
-         src={remoteBg} 
-         isGM={userProfile?.isGM} 
-         onConfigBackground={() => setActiveModal('background')} 
-      />
+      <BoardCanvas src={remoteBg} />
 
       <Header 
         isOpen={headerOpen} setIsOpen={setHeaderOpen} 
+        onOpenBackgroundModal={() => setActiveModal('background')}
         roomData={roomData} userProfile={userProfile} connectedPlayers={connectedPlayers} 
+        remoteBg={remoteBg} 
+        onClearBg={() => emitBackground(null)} 
         onExit={() => { navigate('/'); window.location.reload(); }}
-        onResetUI={() => {
-        const keysToKeep = ['vtt-user-profile', 'vtt-theme', 'vtt-recent-rooms'];
-        Object.keys(localStorage).forEach(key => { if (!keysToKeep.includes(key)) localStorage.removeItem(key); });
-        window.location.reload();
-  }}
+        onResetUI={handleResetUI} 
       />
       
       {!headerOpen && (
-        <button onClick={() => setHeaderOpen(true)} className="fixed top-6 left-1/2 -translate-x-1/2 z-[90] bg-white dark:bg-black/80 p-3 rounded-full shadow-2xl border border-black/10 dark:border-white/10 text-emerald-600 dark:text-emerald-500 hover:scale-110 transition-transform">
-          <ChevronDown size={24} />
+        <button 
+          onClick={() => setHeaderOpen(true)} 
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[90] w-8 h-8 rounded-full bg-neutral-900/90 text-neutral-500 hover:text-white flex items-center justify-center backdrop-blur shadow-lg border border-white/10 transition-all hover:scale-110"
+        >
+          <ChevronDown size={16} />
         </button>
       )}
 
-      {/* Botonera Derecha */}
       <div className="absolute top-28 right-6 z-20 flex flex-col gap-3">
-        
+        <button onClick={() => DiceManager.clear()} className="bg-white dark:bg-neutral-900/60 backdrop-blur-md p-3 rounded-full hover:bg-red-500 text-neutral-500 dark:text-neutral-400 hover:text-white border border-neutral-300 dark:border-white/10 transition-all shadow-xl"><Eraser size={20} /></button>
       </div>
-      {/* Antigua Botonera Derecha */}
+
+      <div className={showMusicPlayer ? 'block' : 'hidden'}>
+        <MusicPlayer audioState={remoteAudio} isGM={roomData?.isGM} onSyncAudio={emitAudio} onClose={() => setShowMusicPlayer(false)} />
+      </div>
 
       {showConsole && <DiceConsole onClose={() => setShowConsole(false)} onRoll={handleConsoleRoll} />}
-      {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={removeLogs} />}
-      {remoteHandouts.map(h => <ImageWindow key={h.id} id={h.id} data={h} onClose={() => removeHandout(h.id)} />)}
-
-      {/* NOTAS */}
-      {openNotes.map(note => (
-        <NoteWindow 
-          key={note.id} 
-          id={note.id} 
-          data={note} 
-          onClose={() => setOpenNotes(prev => prev.filter(n => n.id !== note.id))} 
+      {showHistory && <RollHistory logs={remoteLogs} onClose={() => setShowHistory(false)} onClear={() => {}} />}
+      
+      {openResources.map(resource => (
+        <ResourceWindow 
+          key={resource.id} 
+          id={resource.id} 
+          data={resource} 
+          onClose={() => setOpenResources(prev => prev.filter(r => r.id !== resource.id))} 
         />
       ))}
-
-      {showNotesManager && (
-        <NotesManager 
-          notes={remoteNotes}
-          connectedPlayers={connectedPlayers}
-          currentUser={userProfile}
-          onEmitNote={emitNote}
-          onDeleteNote={removeNote}
-          onOpenNote={(note) => {
-            if (!openNotes.find(n => n.id === note.id)) setOpenNotes(prev => [...prev, note]);
-            setShowNotesManager(false);
-          }}
-          onClose={() => setShowNotesManager(false)}
+      
+      {showLibrary && (
+        <LibraryManager 
+          library={remoteLibrary} 
+          connectedPlayers={connectedPlayers} 
+          currentUser={userProfile} 
+          onEmitResource={emitResource} 
+          onUpdateResource={updateResource}
+          onDeleteResource={deleteResource} 
+          onOpenResource={(resource) => { 
+            if (!openResources.find(r => r.id === resource.id)) {
+              setOpenResources(prev => [...prev, resource]);
+            }
+          }} 
+          onClose={() => setShowLibrary(false)} 
         />
       )}
 
-      {/* MÚSICA: Siempre montado para evitar cortes y errores de Play/Pause */}
-      <div className={showMusicPlayer ? 'contents' : 'hidden'}>
-        <MusicPlayer 
-          audioState={remoteAudio} 
-          isGM={roomData?.isGM} 
-          onSyncAudio={emitAudio} 
-          onClose={() => setShowMusicPlayer(false)} 
-        />
-      </div>
-
-      <ResourceModal 
-        isOpen={!!activeModal} 
-        onClose={() => setActiveModal(null)} 
-        onSubmit={handleResourceSubmit} 
-        onClear={activeModal === 'background' && remoteBg ? handleClearBackground : null}
-        title={activeModal === 'background' ? "Configurar Tablero" : "Nueva imagen"} 
-        showTitleInput={activeModal === 'handout'} 
-      />
+      <ResourceModal isOpen={!!activeModal} onClose={() => setActiveModal(null)} onSubmit={handleResourceSubmit} title="Configurar Fondo" showTitleInput={false} />
 
       <Footer 
         isOpen={footerOpen} setIsOpen={setFooterOpen} 
         onToggleConsole={() => setShowConsole(!showConsole)} isConsoleOpen={showConsole} 
         onToggleHistory={() => setShowHistory(!showHistory)} isHistoryOpen={showHistory} 
-        onOpenImageModal={() => setActiveModal('handout')} 
-        onOpenNotes={() => setShowNotesManager(true)}
-        // AQUÍ ESTÁ LA MAGIA: Pasamos la función al Footer
-        onOpenMusic={() => setShowMusicPlayer(!showMusicPlayer)} 
+        onOpenLibrary={() => setShowLibrary(true)} // AQUI ESTÁ EL CAMBIO
+        onOpenMusic={() => setShowMusicPlayer(!showMusicPlayer)}
       />
     </>
   );
