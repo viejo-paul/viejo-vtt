@@ -70,16 +70,32 @@ function GameLayout() {
   const [openResources, setOpenResources] = useState([]); 
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
 
+  // Arreglo persistencia:
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
+
     DiceManager.init('#dice-canvas').then(() => {
       setDiceReady(true);
-      setTimeout(() => { DiceManager.resize(); DiceManager.updateTheme(theme); }, 200);
+      setTimeout(() => { 
+        DiceManager.resize(); 
+        DiceManager.updateTheme(theme); 
+      }, 200);
     });
+
     const handleResize = () => DiceManager.resize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    // --- Limpieza ---
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      // Forzamos que el canvas de dados deje de bloquear clics al salir
+      const canvas = document.getElementById('dice-canvas');
+      if (canvas) canvas.style.pointerEvents = 'none';
+      // Si tu DiceManager tiene un método de limpieza, úsalo:
+      // DiceManager.clear(); 
+      initialized.current = false;
+    };
   }, []);
 
   useEffect(() => { if (diceReady) try { DiceManager.updateTheme(theme); } catch(e){} }, [theme, diceReady]);

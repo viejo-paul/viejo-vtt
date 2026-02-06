@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Minus, FileText, Image as ImageIcon, Maximize2 } from 'lucide-react';
+import { X, Minus, FileText, Image as ImageIcon, Maximize2, File } from 'lucide-react'; // Añadido File icon
 import { useWindowPosition } from '../hooks/useWindowPosition';
 
-// Estilos específicos para el contenido HTML (Rich Text)
-// Esto hace que las negritas, listas y títulos de Quill se vean bien sin instalar plugins extra
 const RICH_TEXT_STYLES = `
   .rich-text h1 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; }
   .rich-text h2 { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; }
@@ -16,18 +14,17 @@ const RICH_TEXT_STYLES = `
 
 function ResourceWindow({ id, data, onClose }) {
   const isImage = data.type === 'image';
+  const isPdf = data.type === 'pdf'; // Nuevo tipo
 
-  // Posición inicial aleatoria para que no salgan todas una encima de otra
   const randomOffset = useRef({ 
     x: 100 + Math.floor(Math.random() * 200), 
     y: 50 + Math.floor(Math.random() * 150) 
   });
   
-  // Hook de posición (persistencia básica en sesión)
   const [position, setPosition, keepInBounds] = useWindowPosition(`vtt-res-${id}`, randomOffset.current);
   
-  // Tamaño inicial depende del tipo
-  const defaultSize = isImage ? { w: 400, h: 'auto' } : { w: 320, h: 400 };
+  // PDF e Imagen usan dimensiones más grandes por defecto
+  const defaultSize = (isImage || isPdf) ? { w: 500, h: 600 } : { w: 320, h: 400 };
   const [size, setSize] = useState(defaultSize);
   
   const [isMinimized, setIsMinimized] = useState(false);
@@ -37,10 +34,8 @@ function ResourceWindow({ id, data, onClose }) {
   const dragOffset = useRef({ x: 0, y: 0 });
   const startSize = useRef({ w: 0, h: 0, x: 0, y: 0 });
 
-  // --- LÓGICA DE ARRASTRE Y RESIZE ---
   const handleStart = (e) => {
     if (isResizing) return;
-    // Solo permitir arrastre desde la cabecera
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setIsDragging(true);
@@ -82,14 +77,13 @@ function ResourceWindow({ id, data, onClose }) {
   }, [isDragging, isResizing]);
 
   // --- ESTILOS DINÁMICOS ---
-  // Texto: Estilo Nota (Amarillo/Papel)
-  // Imagen: Estilo Marco (Oscuro/Neutro)
-  const containerClasses = isImage 
-    ? "bg-black border-neutral-700 text-white"
+  // PDF e Imagen usan estilo oscuro. Texto usa estilo papel.
+  const containerClasses = (isImage || isPdf)
+    ? "bg-neutral-900 border-neutral-700 text-white"
     : "bg-yellow-50 dark:bg-neutral-800 border-yellow-200 dark:border-neutral-600 text-neutral-900 dark:text-neutral-100";
 
-  const headerClasses = isImage
-    ? "bg-neutral-900 border-neutral-800 text-neutral-300"
+  const headerClasses = (isImage || isPdf)
+    ? "bg-neutral-800 border-neutral-700 text-neutral-300"
     : "bg-yellow-100 dark:bg-neutral-900 border-yellow-200 dark:border-white/10 text-yellow-900 dark:text-yellow-100";
 
   return (
@@ -100,7 +94,7 @@ function ResourceWindow({ id, data, onClose }) {
           left: `${position.x}px`, 
           top: `${position.y}px`, 
           width: isMinimized ? '200px' : `${size.w}px`, 
-          height: isMinimized ? 'auto' : (isImage ? 'auto' : `${size.h}px`),
+          height: isMinimized ? 'auto' : `${size.h}px`,
           maxWidth: '90vw',
           maxHeight: '90vh'
         }}
@@ -112,7 +106,7 @@ function ResourceWindow({ id, data, onClose }) {
           className={`p-2 border-b cursor-grab active:cursor-grabbing flex justify-between items-center select-none ${headerClasses}`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
-            {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+            {isImage ? <ImageIcon size={14} /> : (isPdf ? <File size={14}/> : <FileText size={14} />)}
             <span className="text-xs font-bold truncate">{data.title || 'Sin Título'}</span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -127,40 +121,51 @@ function ResourceWindow({ id, data, onClose }) {
 
         {/* CONTENIDO */}
         {!isMinimized && (
-          <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="flex-1 overflow-hidden relative flex flex-col">
             
-            {/* CASO 1: IMAGEN PURA */}
+            {/* CASO 1: IMAGEN */}
             {isImage && (
-              <div className="bg-black flex items-center justify-center min-h-[200px]">
-                <img src={data.content || data.url} alt={data.title} className="w-full h-auto object-contain" draggable={false} />
+              <div className="flex-1 bg-black flex items-center justify-center overflow-auto">
+                <img src={data.content || data.url} alt={data.title} className="max-w-full h-auto object-contain" draggable={false} />
               </div>
             )}
 
-            {/* CASO 2: TEXTO / NOTA (Puede tener imagen adjunta arriba) */}
-            {!isImage && (
-              <div className="p-4">
-                {/* Imagen adjunta cabecera */}
+            {/* CASO 2: PDF */}
+            {isPdf && (
+              <div className="flex-1 bg-neutral-200 overflow-hidden">
+                 {/* Usamos object para embeber el PDF. Si es Base64 funciona nativamente en Chrome/Firefox modernos */}
+                 <object 
+                    data={data.content} 
+                    type="application/pdf" 
+                    className="w-full h-full"
+                 >
+                    <div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-2">
+                        <p>Tu navegador no puede previsualizar este PDF.</p>
+                        <a href={data.content} download="documento.pdf" className="text-blue-600 underline">Descargar PDF</a>
+                    </div>
+                 </object>
+              </div>
+            )}
+
+            {/* CASO 3: TEXTO */}
+            {!isImage && !isPdf && (
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
                 {data.attachment && (
                   <div className="mb-4 rounded overflow-hidden border border-black/10 dark:border-white/10 shadow-sm">
                     <img src={data.attachment} alt="Adjunto" className="w-full h-auto object-cover" />
                   </div>
                 )}
-                
-                {/* Contenido HTML Rico */}
                 <div 
                   className="rich-text text-sm md:text-base leading-relaxed break-words font-serif"
                   dangerouslySetInnerHTML={{ __html: data.content }}
                 />
-
-                {/* Footer del autor */}
                 <div className="mt-6 pt-2 border-t border-black/5 dark:border-white/5 text-[10px] opacity-50 italic text-right">
                   Creado por {data.author}
                 </div>
               </div>
             )}
 
-            {/* RESIZE HANDLE (Solo si no es imagen pura o si queremos permitir resize en imágenes también) */}
-            {/* En imágenes suele ser mejor dejar que el ancho defina el alto automático, pero permitiremos resize horizontal */}
+            {/* RESIZE HANDLE */}
             <div 
               onMouseDown={(e) => { 
                 e.stopPropagation(); 
@@ -169,7 +174,7 @@ function ResourceWindow({ id, data, onClose }) {
               }} 
               className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-end justify-end p-1 opacity-0 hover:opacity-100 z-50"
             >
-              <div className={`w-2 h-2 border-r-2 border-b-2 ${isImage ? 'border-white' : 'border-yellow-600 dark:border-neutral-400'}`}></div>
+              <div className="w-2 h-2 border-r-2 border-b-2 border-current opacity-50"></div>
             </div>
           </div>
         )}
