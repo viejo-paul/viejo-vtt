@@ -19,8 +19,8 @@ const NOTE_COLORS = [
   { id: 'dark', bg: 'bg-neutral-900 text-white', border: 'border-neutral-700' },
 ];
 
-function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource, onUpdateResource, onDeleteResource, onOpenResource, onClose }) {
-  const [view, setView] = useState('list');
+function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource, onUpdateResource, onDeleteResource, onOpenResource, openResources = [], onClose }) {
+    const [view, setView] = useState('list');
   const [selectedFolder, setSelectedFolder] = useState('Todas');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -211,8 +211,28 @@ function LibraryManager({ library, connectedPlayers, currentUser, onEmitResource
                       {item.type === 'image' ? 'Imagen' : (item.type === 'pdf' ? 'PDF' : 'Nota')} • {new Date(item.createdAt).toLocaleDateString()}
                     </p>
                     <div className="flex gap-3 mt-auto">
-                      <button onClick={() => onOpenResource(item)} className="flex-1 bg-neutral-100 dark:bg-white/10 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all"><Eye size={16}/> MOSTRAR</button>
-                      {(item.author === currentUser.name || currentUser.isGM) && (<button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="flex-1 bg-neutral-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all"><Edit2 size={16}/> EDITAR</button>)}
+                      
+                      {/* BOTÓN INTELIGENTE MOSTRAR/OCULTAR */}
+                      <button 
+                        onClick={() => onOpenResource(item)} 
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                          openResources.find(r => r.id === item.id)
+                            ? 'bg-neutral-800 text-neutral-400 hover:bg-red-600 hover:text-white dark:bg-white/20' // Estado: Ocultar
+                            : 'bg-neutral-100 dark:bg-white/10 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600' // Estado: Mostrar
+                        }`}
+                      >
+                        {openResources.find(r => r.id === item.id) ? (
+                          <><Eye size={16} className="opacity-50"/> OCULTAR</>
+                        ) : (
+                          <><Eye size={16}/> MOSTRAR</>
+                        )}
+                      </button>
+
+                      {(item.author === currentUser.name || currentUser.isGM) && (
+                        <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="flex-1 bg-neutral-100 dark:bg-white/10 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all">
+                          <Edit2 size={16}/> EDITAR
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

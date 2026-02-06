@@ -189,6 +189,22 @@ function GameLayout() {
     );
   }
 
+  // 1. LÓGICA DE TOGGLE (ABRIR/CERRAR)
+  const handleOpenResource = (item) => {
+    // Comprobamos si ya está abierto
+    const isOpen = openResources.find(r => r.id === item.id);
+    
+    if (isOpen) {
+      // Si está abierto, lo cerramos (Filtramos para quitarlo)
+      setOpenResources(prev => prev.filter(r => r.id !== item.id));
+    } else {
+      // Si no, lo abrimos
+      setOpenResources(prev => [...prev, item]);
+    }
+    // Opcional: No cerramos la librería automáticamente para permitir gestión rápida
+    // setShowLibrary(false); 
+  };
+
   return (
     <>
       <BoardCanvas src={remoteBg} />
@@ -233,21 +249,18 @@ function GameLayout() {
       ))}
       
       {showLibrary && (
-        <LibraryManager 
-          library={remoteLibrary} 
-          connectedPlayers={connectedPlayers} 
-          currentUser={userProfile} 
-          onEmitResource={emitResource} 
-          onUpdateResource={updateResource}
-          onDeleteResource={deleteResource} 
-          onOpenResource={(resource) => { 
-            if (!openResources.find(r => r.id === resource.id)) {
-              setOpenResources(prev => [...prev, resource]);
-            }
-          }} 
-          onClose={() => setShowLibrary(false)} 
-        />
-      )}
+         <LibraryManager 
+           library={remoteLibrary} 
+           connectedPlayers={connectedPlayers} 
+           currentUser={userProfile} 
+           onEmitResource={emitResource}
+           onUpdateResource={updateResource}
+           onDeleteResource={deleteResource}
+           onOpenResource={handleOpenResource}
+           openResources={openResources} // <--- NUEVO: Pasamos la lista de abiertos
+           onClose={() => setShowLibrary(false)} 
+         />
+       )}
 
       <ResourceModal isOpen={!!activeModal} onClose={() => setActiveModal(null)} onSubmit={handleResourceSubmit} title="Configurar Fondo" showTitleInput={false} />
 
