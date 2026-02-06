@@ -19,7 +19,8 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
 
   return (
     <>
-      <footer className={`fixed bottom-0 left-0 w-full z-[100] transition-transform duration-500 ease-in-out ${isOpen ? 'translate-y-0' : 'translate-y-[120%]'} pb-[env(safe-area-inset-bottom)]`}>
+      {/* Z-INDEX NUCLEAR (z-[9999]) para asegurar que nada invisible lo tape */}
+      <footer className={`fixed bottom-0 left-0 w-full z-[9999] transition-transform duration-500 ease-in-out ${isOpen ? 'translate-y-0' : 'translate-y-[120%]'} pb-[env(safe-area-inset-bottom)]`}>
         <div className="bg-white/90 dark:bg-black/80 backdrop-blur-md border-t border-black/10 dark:border-white/10 h-16 px-4 flex justify-between items-center gap-2 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
           <div className="w-8"></div> 
 
@@ -27,7 +28,7 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
             {/* 1. TIRADOR DE DADOS */}
             <FooterButton active={isConsoleOpen} onClick={onToggleConsole} icon={Dices} label="Tirador" colorClass="bg-emerald-600" borderClass="border-emerald-500" />
             
-            {/* 2. BIBLIOTECA (Unifica Notas y Handouts) */}
+            {/* 2. BIBLIOTECA */}
             <FooterButton active={false} onClick={onOpenLibrary} icon={Library} label="Biblioteca" colorClass="bg-amber-600" borderClass="border-amber-500" />
             
             {/* 3. MÚSICA (Oculta por ahora) */}
@@ -43,11 +44,11 @@ function Footer({ isOpen, setIsOpen, onToggleConsole, isConsoleOpen, onToggleHis
         </div>
       </footer>
 
-      {/* Pestaña Abrir Footer (Círculo Pequeño) */}
+      {/* Pestaña Abrir Footer (También subimos el Z-index) */}
       {!isOpen && (
         <button 
           onClick={() => setIsOpen(true)} 
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] w-8 h-8 rounded-full bg-neutral-900/90 text-neutral-500 hover:text-white flex items-center justify-center backdrop-blur shadow-lg border border-white/10 transition-all hover:scale-110"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9990] w-8 h-8 rounded-full bg-neutral-900/90 text-neutral-500 hover:text-white flex items-center justify-center backdrop-blur shadow-lg border border-white/10 transition-all hover:scale-110"
         >
           <ChevronUp size={16} />
         </button>
