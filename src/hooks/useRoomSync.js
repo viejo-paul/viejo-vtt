@@ -1,162 +1,69 @@
 import { useEffect, useState } from 'react';
 import { database } from '../firebase';
-import { ref, onValue, push, set, update, remove, onDisconnect } from 'firebase/database'; // Añadido 'update'
+import { ref, onValue, push, set, update, remove, onDisconnect } from 'firebase/database';
 
-export function useRoomSync(slug, userProfile, isSessionActive) {
-  const [remoteLogs, setRemoteLogs] = useState([]);
-  const [remoteBg, setRemoteBg] = useState(null);
+export function useRoomSync(slug, userProfile, isSessionActive = true) {
+  const [roomData, setRoomData] = useState({ background: '' });
   const [connectedPlayers, setConnectedPlayers] = useState([]);
-  const [remoteMetadata, setRemoteMetadata] = useState(null);
-  const [remoteAudio, setRemoteAudio] = useState(null);
-  
-  // NUEVO ESTADO PRINCIPAL
+  const [remoteLogs, setRemoteLogs] = useState([]);
+  const [remoteHandouts, setRemoteHandouts] = useState([]);
+  const [remoteNotes, setRemoteNotes] = useState([]);
   const [remoteLibrary, setRemoteLibrary] = useState([]); 
 
-  // Referencias
-  const roomRef = ref(database, `rooms/${slug}`);
-  const logsRef = ref(database, `rooms/${slug}/logs`);
-  const bgRef = ref(database, `rooms/${slug}/background`);
-  const playersRef = ref(database, `rooms/${slug}/players`);
-  const metadataRef = ref(database, `rooms/${slug}/metadata`);
-  const audioRef = ref(database, `rooms/${slug}/audio`);
-  
-  // NUEVA REFERENCIA DE LIBRERÍA
-  const libraryRef = ref(database, `rooms/${slug}/library`);
+  // 1. Sincronizar Datos
+  useEffect(() => {
+    if (!slug) return; // PROTECCIÓN CLAVE
 
+    const roomRef = ref(database, `rooms/${slug}`); 
+    const unsubscribe = onValue(roomRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setRoomData(prev => ({ ...prev, background: data.background || '' }));
+        if (data.logs) setRemoteLogs(Object.values(data.logs)); else setRemoteLogs([]);
+        if (data.handouts) setRemoteHandouts(Object.values(data.handouts)); else setRemoteHandouts([]);
+        if (data.notes) setRemoteNotes(Object.values(data.notes)); else setRemoteNotes([]);
+        if (data.library) setRemoteLibrary(Object.values(data.library)); else setRemoteLibrary([]);
+      }
+    });
+    return () => unsubscribe();
+  }, [slug]);
+
+  // 2. Presencia
   useEffect(() => {
     if (!slug || !userProfile || !isSessionActive) return;
 
-    // 1. Logs
-    const unsubscribeLogs = onValue(logsRef, (snapshot) => {
-      const data = snapshot.val();
-      setRemoteLogs(data ? Object.values(data).sort((a, b) => b.id - a.id) : []);
-    });
-
-    // 2. Background
-    const unsubscribeBg = onValue(bgRef, (snapshot) => setRemoteBg(snapshot.val() || null));
-
-    // 3. Players
-    const unsubscribePlayers = onValue(playersRef, (snapshot) => {
-      const data = snapshot.val();
-      setConnectedPlayers(data ? Object.values(data) : []);
-    });
-
-    // 4. Metadata
-    const unsubscribeMetadata = onValue(metadataRef, (snapshot) => {
-      setRemoteMetadata(snapshot.val() || null);
-    });
-
-    // 5. Audio
-    const unsubscribeAudio = onValue(audioRef, (snapshot) => {
-      setRemoteAudio(snapshot.val() || { url: '', isPlaying: false });
-    });
-
-    // 6. LIBRERÍA (El Códice Central)
-    const unsubscribeLibrary = onValue(libraryRef, (snapshot) => {
-      const data = snapshot.val();
-      // Convertimos a array y ordenamos por fecha de creación (más reciente primero)
-      setRemoteLibrary(data ? Object.values(data).sort((a, b) => b.createdAt - a.createdAt) : []);
-    });
-
-    return () => {
-      unsubscribeLogs();
-      unsubscribeBg();
-      unsubscribePlayers();
-      unsubscribeMetadata();
-      unsubscribeAudio();
-      unsubscribeLibrary();
-    };
-  }, [slug, isSessionActive]);
-
-  // Gestión de Presencia (Jugadores Online)
-  useEffect(() => {
-    if (!slug || !userProfile || !isSessionActive) return;
-
-    const mySessionId = `${userProfile.name}-${Math.floor(Math.random() * 100000)}`;
-    const myUserRef = ref(database, `rooms/${slug}/players/${mySessionId}`);
-
-    set(myUserRef, { 
-      name: userProfile.name, 
-      color: userProfile.color,
-      isGM: userProfile.isGM || false 
-    });
-
-    onDisconnect(myUserRef).remove();
-
-    return () => {
-      remove(myUserRef);
-    };
-  }, [slug, isSessionActive]);
-
-  // --- EMITTERS (Funciones para escribir en Firebase) ---
-
-  const emitLog = (logData) => {
-    if (!isSessionActive) return;
-    const newLogRef = push(logsRef);
-    set(newLogRef, { ...logData, user: userProfile });
-  };
-
-  const emitBackground = (data) => { 
-    if(isSessionActive) set(bgRef, data); 
-  };
-  
-  const emitMetadata = (meta) => { 
-    if(isSessionActive) set(metadataRef, meta); 
-  };
-  
-  const emitAudio = (audioData) => {
-    if (isSessionActive) set(audioRef, audioData);
-  };
-
-  // --- GESTIÓN DE RECURSOS (LIBRERÍA) ---
-
-  // Crear o Sobrescribir un recurso completo
-  const emitResource = (resourceData) => {
-    if (!isSessionActive) return;
-    const resourceRef = ref(database, `rooms/${slug}/library/${resourceData.id}`);
-    set(resourceRef, resourceData);
-  };
-
-  // Actualizar parcialmente (ej: cambiar visibilidad, actualizar contenido)
-  const updateResource = (resourceId, updates) => {
-    if (!isSessionActive) return;
-    const resourceRef = ref(database, `rooms/${slug}/library/${resourceId}`);
-    update(resourceRef, updates);
-  };
-
-  // Borrar recurso
-  const deleteResource = (resourceId) => {
-    if (!isSessionActive) return;
-    const resourceRef = ref(database, `rooms/${slug}/library/${resourceId}`);
-    remove(resourceRef);
-  };
-
-  return {
-    remoteLogs, 
-    remoteBg, 
-    connectedPlayers, 
-    remoteMetadata, 
-    remoteAudio, 
+    const playerRef = ref(database, `rooms/${slug}/players/${userProfile.id}`);
+    const playersListRef = ref(database, `rooms/${slug}/players`);
     
-    // Nueva Librería
-    remoteLibrary,
-    emitResource,
-    updateResource,
-    deleteResource,
+    set(playerRef, { ...userProfile, online: true, lastSeen: Date.now() });
+    onDisconnect(playerRef).remove();
 
-    // Funciones antiguas
-    emitLog, 
-    emitBackground, 
-    emitMetadata, 
-    emitAudio,
+    const unsub = onValue(playersListRef, (snap) => {
+        if(snap.exists()) setConnectedPlayers(Object.values(snap.val()));
+        else setConnectedPlayers([]);
+    });
+    return () => { unsub(); remove(playerRef); };
+  }, [slug, userProfile, isSessionActive]);
 
-    // COMPATIBILIDAD TEMPORAL (Para que App.jsx no rompa antes de la Fase 2)
-    // Devolvemos arrays vacíos para que la UI antigua simplemente no muestre nada
-    remoteHandouts: [], 
-    remoteNotes: [],
-    emitHandout: () => {},
-    removeHandout: () => {},
-    emitNote: () => {},
-    removeNote: () => {}
+  // Funciones (Protegidas)
+  const updateBackground = (url) => { if (slug) update(ref(database, `rooms/${slug}`), { background: url }); };
+  const emitLog = (log) => { if (slug) push(ref(database, `rooms/${slug}/logs`), log); };
+  const emitHandout = (handout) => { if (slug) set(ref(database, `rooms/${slug}/handouts/${handout.id}`), handout); };
+  const removeHandout = (id) => { if (slug) remove(ref(database, `rooms/${slug}/handouts/${id}`)); };
+  const emitNote = (note) => { if (slug) set(ref(database, `rooms/${slug}/notes/${note.id}`), note); };
+  const removeNote = (id) => { if (slug) remove(ref(database, `rooms/${slug}/notes/${id}`)); };
+  const emitResource = (res) => { if (slug) set(ref(database, `rooms/${slug}/library/${res.id}`), res); };
+  const updateResource = (id, data) => { if (slug) update(ref(database, `rooms/${slug}/library/${id}`), data); };
+  const deleteResource = (id) => { if (slug) remove(ref(database, `rooms/${slug}/library/${id}`)); };
+
+  const joinRoom = (roomSlug, user) => {
+    window.location.hash = `/room/${roomSlug}`;
+  };
+
+  return { 
+    roomData, connectedPlayers, remoteLogs, remoteHandouts, remoteNotes, remoteLibrary,
+    updateBackground, emitLog, emitHandout, removeHandout, emitNote, removeNote, 
+    emitResource, updateResource, deleteResource, 
+    joinRoom, isConnected: !!slug 
   };
 }

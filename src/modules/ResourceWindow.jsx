@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Minus, FileText, Image as ImageIcon, Maximize2, File, Scaling } from 'lucide-react'; 
 import { useWindowPosition } from '../hooks/useWindowPosition';
-import { usePersistentState } from '../hooks/usePersistentState'; // IMPORTANTE: Importar persistencia
+import { usePersistentState } from '../hooks/usePersistentState';
 
 const NOTE_COLORS = {
   default: 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white border-neutral-200 dark:border-neutral-600',
@@ -23,27 +23,19 @@ const NOTE_HEADERS = {
   dark: 'bg-neutral-800 text-neutral-400',
 };
 
-function ResourceWindow({ id, data, onClose }) {
+function ResourceWindow({ id, data, onClose, zIndex, onFocus }) {
   const isImage = data.type === 'image';
   const isPdf = data.type === 'pdf'; 
-  const isFrameless = isImage && data.isFrameless; // Modo Token
+  const isFrameless = isImage && data.isFrameless; 
 
   const randomOffset = useRef({ x: 100 + Math.floor(Math.random() * 200), y: 50 + Math.floor(Math.random() * 150) });
   
-  // 1. POSICIÓN PERSISTENTE (Ya lo hacía useWindowPosition)
   const [position, setPosition, keepInBounds] = useWindowPosition(`vtt-res-${id}`, randomOffset.current);
-  
-  // 2. TAMAÑO PERSISTENTE (Nuevo)
   const defaultSize = (isImage || isPdf) ? { w: 500, h: 500 } : { w: 400, h: 300 }; 
-  const [size, setSize] = usePersistentState(`vtt-res-size-${id}`, defaultSize); // Guardamos tamaño en localStorage
-  
-  // 3. ESTADO MINIMIZADO PERSISTENTE (Nuevo)
+  const [size, setSize] = usePersistentState(`vtt-res-size-${id}`, defaultSize);
   const [isMinimized, setIsMinimized] = usePersistentState(`vtt-res-min-${id}`, false);
-  
-  // Nuevo estado local (no persistente) para mostrar controles en modo frameless
   const [showFramelessControls, setShowFramelessControls] = useState(false);
 
-  // Drag & Resize States
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
@@ -57,6 +49,7 @@ function ResourceWindow({ id, data, onClose }) {
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     setIsDragging(true);
     setDragOffset({ x: clientX - position.x, y: clientY - position.y });
+    if (onFocus) onFocus(); 
   };
 
   const handleStartResize = (e, dir) => {
@@ -66,6 +59,7 @@ function ResourceWindow({ id, data, onClose }) {
     setIsResizing(true);
     resizeDir.current = dir;
     startResize.current = { w: size.w, h: size.h, x: clientX, y: clientY, posX: position.x, posY: position.y };
+    if (onFocus) onFocus(); 
   };
 
   useEffect(() => {
@@ -103,7 +97,6 @@ function ResourceWindow({ id, data, onClose }) {
     return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleEnd); window.removeEventListener('touchmove', handleMove); window.removeEventListener('touchend', handleEnd); };
   }, [isDragging, isResizing, dragOffset]);
 
-  // Estilos Dinámicos
   let containerClass = "bg-white dark:bg-neutral-800 border-neutral-200 dark:border-neutral-600 text-neutral-900 dark:text-white";
   let headerClass = "bg-neutral-100 dark:bg-neutral-900";
 
@@ -122,18 +115,14 @@ function ResourceWindow({ id, data, onClose }) {
 
   return (
     <div 
-      style={{ 
-        left: `${position.x}px`, top: `${position.y}px`, 
-        width: isMinimized ? '200px' : `${size.w}px`, 
-        height: isMinimized ? 'auto' : `${size.h}px`,
-      }}
-      className={`absolute z-40 flex flex-col transition-colors duration-300 ${!isFrameless && 'border rounded-lg shadow-2xl'} ${containerClass}`}
+      style={{ left: `${position.x}px`, top: `${position.y}px`, width: isMinimized ? '200px' : `${size.w}px`, height: isMinimized ? 'auto' : `${size.h}px`, zIndex: zIndex || 40 }}
+      onMouseDown={() => onFocus && onFocus()}
+      className={`absolute flex flex-col transition-colors duration-300 ${!isFrameless && 'border rounded-lg shadow-2xl'} ${containerClass}`}
     >
-      {/* CABECERA (Doble Click para colapsar) */}
       {!isFrameless && (
         <div 
           onMouseDown={handleStartDrag} onTouchStart={handleStartDrag} 
-          onDoubleClick={() => setIsMinimized(!isMinimized)} // DOBLE CLICK AQUI
+          onDoubleClick={() => setIsMinimized(!isMinimized)} 
           className={`p-2 border-b cursor-grab active:cursor-grabbing flex justify-between items-center select-none ${headerClass}`}
         >
           <div className="flex items-center gap-2 overflow-hidden">
@@ -146,11 +135,8 @@ function ResourceWindow({ id, data, onClose }) {
           </div>
         </div>
       )}
-
       {!isMinimized && (
         <div className={`flex-1 overflow-hidden relative flex flex-col ${isFrameless ? 'pointer-events-auto' : ''}`}> 
-          
-          {/* MODO FRAMELESS / TOKEN */}
           {isFrameless && (
             <div 
               onMouseDown={handleStartDrag} onTouchStart={handleStartDrag}
@@ -158,7 +144,6 @@ function ResourceWindow({ id, data, onClose }) {
               className="w-full h-full relative group cursor-grab active:cursor-grabbing"
             >
               <img src={data.content || data.url} alt="Token" className="w-full h-full object-contain pointer-events-none select-none drop-shadow-xl" />
-              
               {showFramelessControls && (
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-neutral-900/80 backdrop-blur text-white px-3 py-1.5 rounded-full flex gap-3 shadow-lg animate-in fade-in zoom-in duration-150 z-50">
                    <button onMouseDown={(e) => handleStartResize(e, 'se')} className="hover:text-blue-400 flex items-center gap-1" title="Redimensionar"><Scaling size={14}/></button>
@@ -169,22 +154,14 @@ function ResourceWindow({ id, data, onClose }) {
               {showFramelessControls && <div className="absolute inset-0 border border-blue-400/50 rounded-lg pointer-events-none"></div>}
             </div>
           )}
-
-          {/* MODO NORMAL (Imagen) */}
           {isImage && !isFrameless && (
-             <div className="flex-1 bg-black flex items-center justify-center overflow-auto">
-               <img src={data.content || data.url} alt={data.title} className="max-w-full h-auto object-contain" draggable={false} />
-             </div>
+             <div className="flex-1 bg-black flex items-center justify-center overflow-auto"><img src={data.content || data.url} alt={data.title} className="max-w-full h-auto object-contain" draggable={false} /></div>
           )}
-
-          {/* MODO PDF */}
           {isPdf && (
             <div className="flex-1 bg-neutral-200 overflow-hidden">
                 <object data={data.content} type="application/pdf" className="w-full h-full"><div className="flex flex-col items-center justify-center h-full text-neutral-500 gap-2"><p>Navegador no soporta PDF.</p><a href={data.content} download="doc.pdf" className="text-blue-600 underline">Descargar</a></div></object>
             </div>
           )}
-
-          {/* MODO TEXTO */}
           {!isImage && !isPdf && (
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-8"> 
               {data.attachment && (<div className="mb-4 rounded overflow-hidden border border-black/10 dark:border-white/10 shadow-sm"><img src={data.attachment} alt="Adjunto" className="w-full h-auto object-cover" /></div>)}
@@ -192,8 +169,6 @@ function ResourceWindow({ id, data, onClose }) {
               <div className="absolute bottom-1 right-2 text-[10px] opacity-50 italic pointer-events-none">Creado por {data.author}</div>
             </div>
           )}
-
-          {/* TIRADORES DE RESIZE (4 Esquinas) */}
           {(!isFrameless || showFramelessControls) && (
             <>
               <div onMouseDown={(e)=>handleStartResize(e,'se')} onTouchStart={(e)=>handleStartResize(e,'se')} className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize z-50 flex items-end justify-end p-1 opacity-0 hover:opacity-100 touch-none"><div className="w-2 h-2 border-r-2 border-b-2 border-current opacity-50"></div></div>
